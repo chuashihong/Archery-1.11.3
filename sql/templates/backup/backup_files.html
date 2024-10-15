@@ -1,0 +1,8 @@
+<h2>Backup Files</h2>
+<ul>
+    {% for file in backup_files %}
+    <li>
+        <a href="{% url 'download_backup' file %}">{{ file }}</a>
+    </li>
+    {% endfor %}
+</ul>

@@ -1,0 +1,30 @@
+<h2>Manual Backup</h2>
+<form method="post" id="manual-backup-form">
+    {% csrf_token %}
+    <label for="db_name">Select Database:</label>
+    <select name="db_name" id="db_name">
+        <option value="mysql">MySQL</option>
+        <option value="mongodb">MongoDB</option>
+    </select>
+    <button type="submit">Perform Backup</button>
+</form>
+
+<script>
+    document.getElementById('manual-backup-form').onsubmit = function(event) {
+        event.preventDefault();
+        var db_name = document.getElementById('db_name').value;
+        fetch("{% url 'manual_backup' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: new URLSearchParams({
+                'db_name': db_name,
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+        });
+    }
+</script>

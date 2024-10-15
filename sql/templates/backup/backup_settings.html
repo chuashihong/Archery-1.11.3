@@ -1,0 +1,6 @@
+<h2>Backup Settings</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save Settings</button>
+</form>

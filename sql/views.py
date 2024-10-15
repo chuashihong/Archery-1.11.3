@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponseRedirect, FileResponse, Http404
+from django.http import HttpResponseRedirect, FileResponse, Http404, JsonResponse
 from django.urls import reverse
 
 from django.conf import settings
@@ -15,6 +15,8 @@ from sql.engines import get_engine, engine_map
 from common.utils.permission import superuser_required
 from common.utils.convert import Convert
 from sql.utils.tasks import task_info
+from . forms import BackupSettingsForm  # Import the form for backup settings
+from .backup_utils import perform_backup, list_backup_files, download_backup_file
 
 from .models import (
     Users,
@@ -110,6 +112,108 @@ def twofa(request):
         },
     )
 
+# def backup(request):
+#     """Render the backup dashboard."""
+#     if request.method == 'POST':
+#         form = BackupSettingsForm(request.POST)
+#         if form.is_valid():
+#             # Save the backup settings
+#             form.save()
+#     else:
+#         form = BackupSettingsForm()
+
+#     # Get the list of backup files for display
+#     backup_files = list_backup_files()
+
+#     return render(request, 'backup.html', {
+#         'form': form,
+#         'backup_files': backup_files
+#     })
+
+# def backup_settings(request):
+#     """View for configuring automated backup settings."""
+#     if request.method == 'POST':
+#         form = BackupSettingsForm(request.POST)
+#         if form.is_valid():
+#             # Save the backup settings (e.g., to the database or a config file)
+#             form.save() 
+#             return HttpResponseRedirect('/backup/settings/')
+#     else:
+#         form = BackupSettingsForm()
+
+#     return render(request, 'backup_settings.html', {'form': form})
+
+# def manual_backup(request):
+#     """Trigger a manual backup of the selected database."""
+#     if request.method == 'POST':
+#         db_name = request.POST.get('db_name')
+#         success, message = perform_backup(db_name)
+#         return JsonResponse({'success': success, 'message': message})
+
+#     return render(request, 'manual_backup.html')
+
+# def backup_files(request):
+#     """View existing backup files and allow download."""
+#     backup_files = list_backup_files()
+#     return render(request, 'backup_files.html', {'backup_files': backup_files})
+
+# def download_backup(request, file_name):
+#     """Download the selected backup file."""
+#     file_path = download_backup_file(file_name)
+#     if os.path.exists(file_path):
+#         with open(file_path, 'rb') as f:
+#             response = HttpResponse(f.read(), content_type="application/octet-stream")
+#             response['Content-Disposition'] = f'attachment; filename={file_name}'
+#             return response
+#     return JsonResponse({'error': 'File not found'}, status=404)
+
+def backup_dashboard(request):
+    """View for the backup dashboard."""
+    form = BackupSettingsForm()
+
+    # For the backup file listing, you can pass backup_files to the template.
+    backup_files = list_backup_files()
+
+    return render(request, 'backup/dashboard.html', {
+        'form': form,
+        'backup_files': backup_files
+    })
+
+def backup_settings(request):
+    """View for configuring backup settings."""
+    if request.method == 'POST':
+        form = BackupSettingsForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return HttpResponseRedirect('/backup/')
+    else:
+        form = BackupSettingsForm()
+
+    return render(request, 'backup/backup_settings.html', {'form': form})
+
+def manual_backup(request):
+    """Trigger a manual backup of the selected database."""
+    if request.method == 'POST':
+        db_name = request.POST.get('db_name')
+        success, message = perform_backup(db_name)
+        return JsonResponse({'success': success, 'message': message})
+
+    return render(request, 'backup/manual_backup.html')
+
+def backup_files(request):
+    """View existing backup files and allow download."""
+    backup_files = list_backup_files()
+    return render(request, 'backup/F.html', {'backup_files': backup_files})
+
+def download_backup(request, file_name):
+    """Download the selected backup file."""
+    file_path = download_backup_file(file_name)
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as f:
+            response = HttpResponse(f.read(), content_type="application/octet-stream")
+            response['Content-Disposition'] = f'attachment; filename={file_name}'
+            return response
+    return JsonResponse({'error': 'File not found'}, status=404)
 
 @permission_required("sql.menu_dashboard", raise_exception=True)
 def dashboard(request):

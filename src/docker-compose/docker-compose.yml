@@ -1,4 +1,4 @@
-version: '3'
+# version: '3' ##Obsolete
 
 services:
   redis:
@@ -67,6 +67,7 @@ services:
       - "../../common:/opt/archery/common"
       - "../../sql:/opt/archery/sql"
       - "../../sql_api:/opt/archery/sql_api"
+      - "./backup:/opt/archery/backup"
     entrypoint: "bash /opt/archery/src/docker/startup.sh"
     env_file:
       - .env
