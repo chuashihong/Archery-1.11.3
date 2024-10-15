@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3307         # Expose MySQL on this port externally (local machine)
+      targetPort: 3306   # Target the MySQL container's internal port 3306
+      nodePort: 30002    # NodePort will map traffic from external clients to MySQL
+  type: NodePort

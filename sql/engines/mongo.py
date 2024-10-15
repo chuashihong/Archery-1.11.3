@@ -798,12 +798,12 @@ class MongoEngine(EngineBase):
         self.conn = pymongo.MongoClient(
             self.host,
             self.port,
+            username=self.user,
+            password=self.password,
             authSource=auth_db,
             connect=True,
             connectTimeoutMS=10000,
         )
-        if self.user and self.password:
-            self.conn[self.db_name].authenticate(self.user, self.password, auth_db)
         return self.conn
 
     def close(self):
