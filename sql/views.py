@@ -118,7 +118,7 @@ def backup_dashboard(request):
     """View for the backup dashboard."""
     # Retrieve backup files to show in the table
     # backup_files = list_backup_files()
-    return render(request, 'backup/backup.html', {
+    return render(request, 'backup.html', {
         # 'backup_files': backup_files
     })
 
