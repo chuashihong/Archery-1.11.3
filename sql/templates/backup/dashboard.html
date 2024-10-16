@@ -12,17 +12,17 @@
         <h1>Backup Dashboard</h1>
 
         <!-- Section for Backup Settings -->
-        <!-- <section class="mt-4">
+        <section class="mt-4">
             <h2>Backup Settings</h2>
             <form method="post" action="{% url 'backup_settings' %}">
                 {% csrf_token %}
                 {{ form.as_p }}
                 <button type="submit" class="btn btn-primary">Save Settings</button>
             </form>
-        </section> -->
+        </section>
 
         <!-- Section for Manual Backup -->
-        <!-- <section class="mt-5">
+        <section class="mt-5">
             <h2>Manual Backup</h2>
             <form method="post" id="manual-backup-form">
                 {% csrf_token %}
@@ -35,10 +35,10 @@
                 </div>
                 <button type="submit" class="btn btn-warning mt-2">Perform Backup</button>
             </form>
-        </section> -->
+        </section>
 
         <!-- Section for Backup Files -->
-        <!-- <section class="mt-5">
+        <section class="mt-5">
             <h2>Backup Files</h2>
             <table class="table table-striped">
                 <thead>
@@ -56,11 +56,10 @@
                         <td>{{ file.db_name }}</td>
                         <td>{{ file.created_at }}</td>
                         <td><a href="{% url 'download_backup' file.name %}" class="btn btn-success">Download</a></td>
-                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </section> -->
+        </section>
     </div>
 </body>
 </html>
