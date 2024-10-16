@@ -35,13 +35,31 @@
             <form method="post" id="manual-backup-form" action="backup/manual">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label for="db_name">Select Database</label>
-                    <select name="db_name" id="db_name" class="form-control">
+                    <label for="db_type">Select Database Type</label>
+                    <select name="db_type" id="db_type" class="form-control">
                         <option value="mysql">MySQL</option>
                         <option value="mongodb">MongoDB</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-warning mt-2">Perform Backup</button>
+                <div class="form-group mt-3">
+                    <label for="backup_scope">Backup Scope:</label>
+                    <select name="backup_scope" id="backup_scope" class="form-control">
+                        <option value="instance">Whole Instance</option>
+                        <option value="selected_databases">Selected Databases</option>
+                    </select>
+                </div>
+
+                <!-- Databases Selection -->
+                <div class="form-group mt-3" id="database-selection" style="display: none;">
+                    <label for="databases">Select Databases (if applicable):</label>
+                    <select name="databases" id="databases" class="form-control" multiple>
+                        {% for db in available_databases %}
+                        <option value="{{ db }}">{{ db }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-warning mt-3">Perform Backup</button>
             </form>
         </section>
 
@@ -53,6 +71,7 @@
                     <tr>
                         <th>File Name</th>
                         <th>Database</th>
+                        <th>Backup Scope</th>
                         <th>Date Created</th>
                         <th>Actions</th>
                     </tr>
@@ -62,6 +81,7 @@
                     <tr>
                         <td>{{ file.name }}</td>
                         <td>{{ file.db_name }}</td>
+                        <td>{{ file.backup_scope }}</td>
                         <td>{{ file.created_at }}</td>
                         <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
                     </tr>
@@ -70,4 +90,16 @@
             </table>
         </section>
     </div>
+
+    <script>
+        document.getElementById('backup_scope').addEventListener('change', function() {
+            var selectedScope = this.value;
+            var dbSelection = document.getElementById('database-selection');
+            if (selectedScope === 'selected_databases') {
+                dbSelection.style.display = 'block';
+            } else {
+                dbSelection.style.display = 'none';
+            }
+        });
+    </script>
 {% endblock %}
