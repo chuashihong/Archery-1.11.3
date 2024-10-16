@@ -142,11 +142,19 @@ def backup_settings(request):
     return render(request, 'backup/backup_settings.html')
 
 def manual_backup(request):
-    """Trigger a manual backup of the selected database."""
+    """Trigger a manual backup of the selected database or table."""
     if request.method == 'POST':
         db_name = request.POST.get('db_name')
-        success, message = perform_backup(db_name)
+        table_name = request.POST.get('table_name')  # Optional for table-level backup
+
+        if not db_name:
+            return JsonResponse({'success': False, 'message': 'Database name is required.'}, status=400)
+
+        # Perform the backup, optionally including the table name
+        success, message = perform_backup(db_name, table_name)
         return JsonResponse({'success': success, 'message': message})
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
 
 def backup_files(request):
     """View existing backup files and allow download."""

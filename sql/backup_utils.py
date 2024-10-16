@@ -18,22 +18,42 @@ def save_backup_settings(settings):
     with open(BACKUP_SETTINGS_FILE, 'w') as f:
         f.write(str(settings))
 
-def perform_backup(db_name):
-    """Perform a manual backup."""
+def perform_backup(db_name, table_name=None):
+    """Perform a manual backup of the specified database or table."""
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    backup_file = f"{BACKUP_DIR}/{db_name}_backup_{timestamp}.dump"
+    backup_file = os.path.join(BACKUP_DIR, f"{db_name}_backup_{timestamp}.dump")
+    
+    # Ensure the backup directory exists
+    os.makedirs(BACKUP_DIR, exist_ok=True)
     
     try:
+        # Backup command for MySQL
         if db_name == 'mysql':
-            command = f"mysqldump -u root -p'yourpassword' --all-databases > {backup_file}"
-        elif db_name == 'mongodb':
-            command = f"mongodump --out {backup_file}"
+            if table_name:
+                # Backup a specific table
+                command = f"mysqldump -u root -p'password123' {db_name} {table_name} > {backup_file}"
+            else:
+                # Backup the entire database
+                command = f"mysqldump -u root -p'password123' {db_name} > {backup_file}"
 
+        # Backup command for MongoDB
+        elif db_name == 'mongodb':
+            if table_name:
+                # Backup a specific collection in MongoDB
+                command = f"mongodump --db {db_name} --collection {table_name} --out {backup_file}"
+            else:
+                # Backup the entire MongoDB database
+                command = f"mongodump --db {db_name} --out {backup_file}"
+
+        # Run the backup command
         subprocess.run(command, shell=True, check=True)
         return True, f"Backup successful: {backup_file}"
-    except subprocess.CalledProcessError as e:
-        return False, str(e)
 
+    except subprocess.CalledProcessError as e:
+        return False, f"Backup failed: {str(e)}"
+
+    except Exception as e:
+        return False, f"An unexpected error occurred: {str(e)}"
 def list_backup_files():
     """List all backup files."""
     backup_files = []
