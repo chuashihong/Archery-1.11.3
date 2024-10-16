@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- 自定义操作按钮 -->
+    <div>
+        <div id="toolbar" class="form-inline pull-left">
+            <div class="form-group">
+                <select id="instance" class="form-control selectpicker" name="instance_list"
+                        title="请选择实例"
+                        data-live-search="true">
+                    <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                    <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+                </select>
+            </div>
+
+            <div class="form-group ml-2">
+                <label for="db_name">Select Database</label>
+                <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database">
+                    <!-- Dynamically loaded databases will be appended here -->
+                </select>
+            </div>
+
+            <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+        </div>
+    </div>
+
+    <!-- Backup History and Downloads Section -->
+    <section class="mt-5">
+        <h2>Backup Files</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th>Instance</th>
+                    <th>Database</th>
+                    <th>Date Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in backup_files %}
+                <tr>
+                    <td>{{ file.name }}</td>
+                    <td>{{ file.instance_name }}</td>
+                    <td>{{ file.db_name }}</td>
+                    <td>{{ file.created_at }}</td>
+                    <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Backup Settings Section -->
+    <section class="mt-4">
+        <h2>Backup Settings</h2>
+        <form method="post" action="backup/settings/">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="frequency">Backup Frequency:</label>
+                <select name="frequency" id="frequency" class="form-control">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="time">Backup Time:</label>
+                <input type="time" name="time" id="time" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="destination">Backup Destination Path:</label>
+                <input type="text" name="destination" id="destination" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
+        </form>
+    </section>
+{% endblock %}
+
+{% block js %}
+    {% load static %}
+    <script src="{% static 'bootstrap-table/js/bootstrap-table-export.min.js' %}"></script>
+    <script src="{% static 'bootstrap-table/js/tableExport.min.js' %}"></script>
+    <script>
+            $(document).ready(function () {
+                // Function to load databases based on the selected instance
+                function database_list() {
+                    let db_type = "";
+                    if ($("#instance").val()) {
+                        db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+                    }
+
+                    // AJAX request to retrieve databases
+                    $.ajax({
+                        type: "post",  // This should be POST to match the backend function
+                        url: "/instance/database/list/",
+                        data: {
+                            instance_id: $("#instance").val(),
+                            db_type: db_type
+                        },
+                        success: function (data) {
+                            console.log(data);  // Log the response to inspect the structure
+
+                            // Ensure data contains the expected structure
+                            if (data.status === 0 && Array.isArray(data.rows)) {
+                                $("#db_name").empty();  // Clear existing options
+                                // Iterate over the rows and append database options
+                                data.rows.forEach(function (db) {
+                                    $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
+                                });
+                                // Refresh the selectpicker
+                                $('#db_name').selectpicker('refresh');
+                                // Enable the backup button
+                                $('#backup-btn').prop('disabled', false);
+                            } else {
+                                console.error("Invalid data format or no databases found:", data);
+                                alert("No databases found or an error occurred.");
+                            }
+                        },
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            alert("Error loading databases: " + errorThrown);
+                        }
+                    });
+                }
+
+                // When the instance is selected, load the corresponding databases
+                $("#instance").change(function () {
+                    database_list(); // Load databases for selected instance
+                });
+
+                // Initialize instance list on page load
+                $.ajax({
+                    type: "get",
+                    url: "/group/user_all_instances/",
+                    dataType: "json",
+                    success: function (data) {
+                        if (data.status === 0) {
+                            let instances = data['data'];
+                            $("optgroup[id^='optgroup']").empty();
+                            const supportDb = ['mysql', 'mongo'];
+                            for (let instance of instances) {
+                                let instanceOption = `<option value="${instance.id}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
+                                if (supportDb.includes(instance.db_type)) {
+                                    $("#optgroup-" + instance.db_type).append(instanceOption);
+                                }
+                            }
+                            $('#instance').selectpicker('refresh');
+                        } else {
+                            alert("Error loading instances: " + data.msg);
+                        }
+                    },
+                    error: function (XMLHttpRequest, textStatus, errorThrown) {
+                        alert("Error loading instances: " + errorThrown);
+                    }
+                });
+            });
+    </script>
+{% endblock %}
