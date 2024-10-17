@@ -5,7 +5,7 @@
 <div class="form-group">
     <label for="backup_type">Backup Type:</label>
     <select id="backup_type" class="form-control">
-        <option value="instance">Backup Entire Instance</option>
+        <option value="instance" selected>Backup Entire Instance</option>
         <option value="database">Backup Specific Database</option>
         <option value="table">Backup Specific Table</option>
     </select>
@@ -203,31 +203,18 @@
 
             // Show loading spinner
             showLoading();
-
-            // Get the selected backup type
-            let backupType = $("#backup_type").val();
-            let instanceId = $("#instance").val();
-            let dbName = $("#db_name").val();
-            let tableName = $("#table_name").val();  // For table backups
-
-            // Create data object for the request based on the backup type
-            let requestData = {
-                instance_id: instanceId
+            
+            let data = {
+                backup_type: $("#backup_type").val(),
+                instance_id: $("#instance").val(),
+                db_name: $("#db_name").val(),
+                table_name: $("#table_name").val()
             };
-
-            // Adjust request data based on the selected backup type
-            if (backupType === "database") {
-                requestData['db_name'] = dbName;
-            } else if (backupType === "table") {
-                requestData['db_name'] = dbName;
-                requestData['table_name'] = tableName;
-            }
-
-            // Send the AJAX request to perform the backup
+            console.log("The data:", data);  // Log the data to inspect the structure
             $.ajax({
                 type: "post",  // Use POST for sending data
                 url: "/backup/manual/",  // URL for the manual backup endpoint
-                data: requestData,
+                data: data,  // Data to send to the endpoint
                 success: function (data) {
                     // Hide loading spinner
                     hideLoading();

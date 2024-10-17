@@ -143,15 +143,21 @@ def backup_settings(request):
 
 def manual_backup(request):
     """Trigger a manual backup of the selected database or table."""
+    
     if request.method == 'POST':
-        db_name = request.POST.get('db_name')
-        table_name = request.POST.get('table_name')  # Optional for table-level backup
-
-        if not db_name:
-            return JsonResponse({'success': False, 'message': 'Database name is required.'}, status=400)
-
+        backup_type = request.POST.get("backup_type")
+        instance_id = request.POST.get("instance_id", 0)
+        db_name = request.POST.get("db_name")
+        table_name = request.POST.get("table_name")
+        try:
+            instance = user_instances(request.user, db_type=["mysql", "mongo"]).get(
+                id=instance_id
+            )
+        except Instance.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Instance not found.'}, status=404)
+        
         # Perform the backup, optionally including the table name
-        success, message = perform_backup(db_name, table_name)
+        success, message = perform_backup(backup_type, instance.db_type, db_name, table_name)
         return JsonResponse({'success': success, 'message': message})
 
     return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)

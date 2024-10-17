@@ -18,35 +18,66 @@ def save_backup_settings(settings):
     with open(BACKUP_SETTINGS_FILE, 'w') as f:
         f.write(str(settings))
 
-def perform_backup(db_name, table_name=None):
+def perform_backup(backup_type, db_type, db_name, table_name=None):
     """Perform a manual backup of the specified database or table."""
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    backup_file = os.path.join(BACKUP_DIR, f"{db_name}_backup_{timestamp}.dump")
+    timestamp = datetime.now().strftime("%Y-%b-%d-%H:%M:%S")
+    backup_file = os.path.join(BACKUP_DIR, f"{db_type}-{db_name + '-' if db_name else ''}backup-{timestamp}")
     
     # Ensure the backup directory exists
     os.makedirs(BACKUP_DIR, exist_ok=True)
     
     try:
         # Backup command for MySQL
-        if db_name == 'mysql':
-            if table_name:
-                # Backup a specific table
-                command = f"mysqldump -u root -p'password123' {db_name} {table_name} > {backup_file}"
+        if db_type == 'mysql':
+            backup_file += ".sql"  # Ensuring correct file extension
+            if backup_type == "instance":
+                # Backup the entire MySQL instance
+                command = ["mysqldump", "-h", "host.docker.internal", "-P", "3307", "-u", "root", "-ppassword123", "--all-databases"]
+            elif backup_type == "database":
+                # Backup a specific MySQL database
+                command = ["mysqldump", "-h", "host.docker.internal", "-P", "3307", "-u", "root", "-ppassword123", db_name]
+            elif backup_type == "table":
+                # Backup a specific table from a database
+                command = ["mysqldump", "-h", "host.docker.internal", "-P", "3307", "-u", "root", "-ppassword123", db_name, table_name]
             else:
-                # Backup the entire database
-                command = f"mysqldump -u root -p'password123' {db_name} > {backup_file}"
+                return False, "Invalid backup type specified for MySQL."
 
+            # Direct the output to the backup file for MySQL
+            with open(backup_file, 'w') as f:
+                subprocess.run(command, stdout=f, check=True)
+            
         # Backup command for MongoDB
-        elif db_name == 'mongodb':
-            if table_name:
-                # Backup a specific collection in MongoDB
-                command = f"mongodump --db {db_name} --collection {table_name} --out {backup_file}"
+        elif db_type == 'mongo':
+            # Common parameters for all MongoDB backups (host, port, user, password)
+            common_mongo_args = [
+                "mongodump", 
+                "--host", "host.docker.internal", 
+                "--port", "27018", 
+                "-u", "admin", 
+                "-p", "password123", 
+                "--authenticationDatabase", "admin"
+            ]
+            
+            if backup_type == "instance":
+                # Backup the entire MongoDB instance
+                command = common_mongo_args + ["--out", backup_file]
+            
+            elif backup_type == "database":
+                # Backup a specific MongoDB database
+                command = common_mongo_args + ["--db", db_name, "--out", backup_file]
+            
+            elif backup_type == "table":
+                # Backup a specific collection from a MongoDB database
+                command = common_mongo_args + ["--db", db_name, "--collection", table_name, "--out", backup_file]
+            
             else:
-                # Backup the entire MongoDB database
-                command = f"mongodump --db {db_name} --out {backup_file}"
+                return False, "Invalid backup type specified for MongoDB."
 
-        # Run the backup command
-        subprocess.run(command, shell=True, check=True)
+            # Run the MongoDB backup command
+            subprocess.run(command, check=True)
+        else:
+            return False, "Unsupported database type."
+
         return True, f"Backup successful: {backup_file}"
 
     except subprocess.CalledProcessError as e:
