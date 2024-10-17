@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Backup Options Selection -->
+<div class="form-group">
+    <label for="backup_type">Backup Type:</label>
+    <select id="backup_type" class="form-control">
+        <option value="instance" selected>Backup Entire Instance</option>
+        <option value="database">Backup Specific Database</option>
+        <option value="table">Backup Specific Table</option>
+    </select>
+</div>
+
+<!-- Backup Options (Instance, Database, Table) -->
+<div>
+    <div id="toolbar" class="form-inline pull-left">
+        <div class="form-group">
+            <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
+                data-live-search="true">
+                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+            </select>
+        </div>
+
+        <div id="db_container" class="form-group ml-2" style="display: none;">
+            <label for="db_name">Select Database</label>
+            <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
+        </div>
+
+        <div id="table_container" class="form-group ml-2" style="display: none;">
+            <label for="table_name">Select Table</label>
+            <select id="table_name" name="table_name" class="form-control selectpicker" title="Select Table"></select>
+        </div>
+
+        <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div id="loading-spinner" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+</div>
+
+<!-- Backup History and Downloads Section -->
+<section class="mt-5">
+    <h2>Backup Files</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Instance</th>
+                <th>Database</th>
+                <th>Date Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in backup_files %}
+            <tr>
+                <td>{{ file.name }}</td>
+                <td>{{ file.instance_name }}</td>
+                <td>{{ file.db_name }}</td>
+                <td>{{ file.created_at }}</td>
+                <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<!-- Backup Settings Section -->
+<section class="mt-4">
+    <h2>Backup Settings</h2>
+    <form method="post" action="backup/settings/">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="frequency">Backup Frequency:</label>
+            <select name="frequency" id="frequency" class="form-control">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="time">Backup Time:</label>
+            <input type="time" name="time" id="time" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="destination">Backup Destination Path:</label>
+            <input type="text" name="destination" id="destination" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
+    </form>
+</section>
+{% endblock %}
+
+{% block js %}
+{% load static %}
+<script src="{% static 'bootstrap-table/js/bootstrap-table-export.min.js' %}"></script>
+<script src="{% static 'bootstrap-table/js/tableExport.min.js' %}"></script>
+<script>
+    $(document).ready(function () {
+        // Show/hide relevant inputs based on backup type selection
+        $("#backup_type").change(function () {
+            let backupType = $(this).val();
+            if (backupType === "instance") {
+                $("#db_container, #table_container").hide();
+            } else if (backupType === "database") {
+                $("#db_container").show();
+                $("#table_container").hide();
+            } else if (backupType === "table") {
+                $("#db_container, #table_container").show();
+            }
+            $('#backup-btn').prop('disabled', false);  // Enable the backup button after selection
+        });
+
+        // Function to show loading spinner
+        function showLoading() {
+            $('#loading-spinner').show();
+        }
+
+        // Function to hide loading spinner
+        function hideLoading() {
+            $('#loading-spinner').hide();
+        }
+
+        // Function to load databases based on the selected instance
+        function database_list() {
+            let db_type = "";
+            if ($("#instance").val()) {
+                db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+            }
+
+            showLoading(); // Show loading spinner
+
+            // AJAX request to retrieve databases
+            $.ajax({
+                type: "post",  // This should be POST to match the backend function
+                url: "/instance/database/list/",
+                data: {
+                    instance_id: $("#instance").val(),
+                    db_type: db_type
+                },
+                success: function (data) {
+                    hideLoading(); // Hide loading spinner
+                    console.log(data);  // Log the response to inspect the structure
+
+                    // Ensure data contains the expected structure
+                    if (data.status === 0 && Array.isArray(data.rows)) {
+                        $("#db_name").empty();  // Clear existing options
+                        // Iterate over the rows and append database options
+                        data.rows.forEach(function (db) {
+                            $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
+                        });
+                        // Refresh the selectpicker
+                        $('#db_name').selectpicker('refresh');
+                        // Enable the backup button
+                        $('#backup-btn').prop('disabled', false);
+                    } else {
+                        console.error("Invalid data format or no databases found:", data);
+                        alert("No databases found or an error occurred.");
+                    }
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    hideLoading(); // Hide loading spinner on error
+                    alert("Error loading databases: " + errorThrown);
+                }
+            });
+        }
+
+        // When the instance is selected, load the corresponding databases
+        $("#instance").change(function () {
+            database_list(); // Load databases for selected instance
+        });
+
+        // Initialize instance list on page load
+        $.ajax({
+            type: "get",
+            url: "/group/user_all_instances/",
+            dataType: "json",
+            success: function (data) {
+                let instances = data['data'];
+                $("optgroup[id^='optgroup']").empty();
+                const supportDb = ['mysql', 'mongo'];
+                for (let instance of instances) {
+                    let instanceOption = `<option value="${instance.id}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
+                    if (supportDb.includes(instance.db_type)) {
+                        $("#optgroup-" + instance.db_type).append(instanceOption);
+                    }
+                }
+                $('#instance').selectpicker('refresh');
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                alert("Error loading instances: " + errorThrown);
+            }
+        });
+        // Perform backup button click event
+        $("#backup-btn").click(function () {
+            // Disable the button to prevent multiple clicks
+            $(this).prop('disabled', true);
+
+            // Show loading spinner
+            showLoading();
+            
+            let data = {
+                backup_type: $("#backup_type").val(),
+                instance_id: $("#instance").val(),
+                db_name: $("#db_name").val(),
+                table_name: $("#table_name").val()
+            };
+            console.log("The data:", data);  // Log the data to inspect the structure
+            $.ajax({
+                type: "post",  // Use POST for sending data
+                url: "/backup/manual/",  // URL for the manual backup endpoint
+                data: data,  // Data to send to the endpoint
+                success: function (data) {
+                    // Hide loading spinner
+                    hideLoading();
+
+                    // Enable the button again
+                    $("#backup-btn").prop('disabled', false);
+
+                    // Check the response from the server
+                    if (data.success) {
+                        alert("Backup successful!");
+                        // Optionally, reload the backup history or any other elements
+                    } else {
+                        alert("Backup failed: " + data.message);
+                    }
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    // Hide loading spinner and enable the button in case of error
+                    hideLoading();
+                    $("#backup-btn").prop('disabled', false);
+                    alert("Error performing backup: " + errorThrown);
+                }
+            });
+        });
+
+    });
+
+
+</script>
+{% endblock %}

@@ -8,7 +8,13 @@ WORKDIR /opt/
 RUN useradd nginx
 #archery
 RUN apt-get update \
-    && apt-get install -yq --no-install-recommends nginx mariadb-client \
+    && apt-get install -yq --no-install-recommends nginx mariadb-client wget gnupg \
+    # Add MongoDB GPG key and repository
+    && wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add - \
+    && echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-5.0.list \
+    && apt-get update \
+    && apt-get install -y mongodb-org-shell mongodb-org-tools \
+    ## End of MongoDB GPG key and repository
     && source venv4archery/bin/activate \
     && pip install -r /opt/archery/requirements.txt \
     && pip install "redis>=4.1.0" \
