@@ -2,69 +2,103 @@
 
 {% block content %}
 <!-- Backup Options Selection -->
-<div class="form-group">
-    <label for="backup_type">Backup Type:</label>
-    <select id="backup_type" class="form-control">
-        <option value="instance" selected>Backup Entire Instance</option>
-        <option value="database">Backup Specific Database</option>
-        <option value="table">Backup Specific Table</option>
-    </select>
-</div>
-
-<!-- Backup Options (Instance, Database, Table) -->
-<div>
-    <div id="toolbar" class="form-inline pull-left">
-        <div class="form-group">
-            <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
-                data-live-search="true">
-                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
-                <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
-            </select>
-        </div>
-
-        <div id="db_container" class="form-group ml-2" style="display: none;">
-            <label for="db_name">Select Database</label>
-            <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
-        </div>
-
-        <div id="table_container" class="form-group ml-2" style="display: none;">
-            <label for="table_name">Select Table</label>
-            <select id="table_name" name="table_name" class="form-control selectpicker" title="Select Table"></select>
-        </div>
-
-        <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+<section class="mt-5">
+    <div class="form-group">
+        <label for="backup_type">Backup Type:</label>
+        <select id="backup_type" class="form-control">
+            <option value="instance" selected>Backup Entire Instance</option>
+            <option value="database">Backup Specific Database</option>
+            <option value="table">Backup Specific Table</option>
+        </select>
     </div>
-</div>
 
-<!-- Loading Spinner -->
-<div id="loading-spinner" style="display: none;">
-    <div class="spinner-border text-primary" role="status">
-        <span class="sr-only">Loading...</span>
+    <!-- Backup Options (Instance, Database, Table) -->
+    <div>
+        <div id="toolbar" class="form-inline pull-left">
+            <div class="form-group">
+                <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
+                    data-live-search="true">
+                    <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                    <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+                </select>
+            </div>
+
+            <div id="db_container" class="form-group ml-2" style="display: none;">
+                <label for="db_name">Select Database</label>
+                <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
+            </div>
+
+            <div id="table_container" class="form-group ml-2" style="display: none;">
+                <label for="table_name">Select Table</label>
+                <select id="table_name" name="table_name" class="form-control selectpicker"
+                    title="Select Table"></select>
+            </div>
+
+            <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+        </div>
     </div>
-</div>
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+</section>
 
 <!-- Backup History and Downloads Section -->
 <section class="mt-5">
     <h2>Backup Files</h2>
+
+    <!-- MySQL Backup Files -->
+    <h3>MySQL Backups</h3>
     <table class="table table-striped">
         <thead>
             <tr>
                 <th>File Name</th>
-                <th>Instance</th>
-                <th>Database</th>
+                <th>Backup Type</th>
+                <th>Size</th>
                 <th>Date Created</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            {% for file in backup_files %}
+            {% for file in backup_files.MySQL %}
             <tr>
                 <td>{{ file.name }}</td>
-                <td>{{ file.instance_name }}</td>
-                <td>{{ file.db_name }}</td>
+                <td>{{ file.backup_type }}</td>
+                <td>{{ file.size|filesizeformat }}</td>
                 <td>{{ file.created_at }}</td>
                 <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
             </tr>
+            {% empty %}
+            <tr><td colspan="5">No MySQL backups found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- MongoDB Backup Folders -->
+    <h3>MongoDB Backups</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Folder Name</th>
+                <th>Backup Type</th>
+                <th>Size</th>
+                <th>Date Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in backup_files.MongoDB %}
+            <tr>
+                <td>{{ file.name }}</td>
+                <td>{{ file.backup_type }}</td>
+                <td>{{ file.size|filesizeformat }}</td>
+                <td>{{ file.created_at }}</td>
+                <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download (ZIP)</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No MongoDB backups found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -239,6 +273,7 @@
             });
         });
 
+        
     });
 
 

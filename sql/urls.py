@@ -23,6 +23,7 @@ from sql import (
     archiver,
     audit_log,
     user,
+    backup_utils,
 )
 from sql.utils import tasks
 from common.utils import ding_api
@@ -30,10 +31,10 @@ from common.utils import ding_api
 urlpatterns = [
     path("", views.index),
     path('backup/', views.backup_dashboard, name='backup_dashboard'),
-    path('backup/settings/', views.backup_settings, name='backup_settings'),
-    path('backup/manual/', views.manual_backup, name='manual_backup'),
-    path('backup/files/', views.backup_files, name='backup_files'),
-    path('backup/download/<str:file_name>/', views.download_backup, name='download_backup'),
+    path('backup/settings/', backup_utils.backup_settings, name='backup_settings'),
+    path('backup/manual/', backup_utils.manual_backup, name='manual_backup'),
+    path('backup/files/', backup_utils.backup_files, name='backup_files'),
+    path('backup/download/<str:file_name>/', backup_utils.download_backup, name='download_backup'),
     path("jsi18n/", JavaScriptCatalog.as_view(), name="javascript-catalog"),
     path("index/", views.index),
     path("login/", views.login, name="login"),
