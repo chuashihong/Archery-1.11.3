@@ -234,6 +234,18 @@
         $("#backup-btn").click(function () {
             // Disable the button to prevent multiple clicks
             $(this).prop('disabled', true);
+            
+            // Validate the selected backup type
+            let backupType = $("#backup_type").val();
+            if (backupType === "database" && !$("#db_name").val()) {
+                alert("Please select a database to backup.");
+                $("#backup-btn").prop('disabled', false);
+                return;
+            } else if (backupType === "table" && !$("#table_name").val()) {
+                alert("Please select a table to backup.");
+                $("#backup-btn").prop('disabled', false);
+                return;
+            }
 
             // Show loading spinner
             showLoading();

@@ -9,9 +9,13 @@ from sql.models import Instance
 from sql.utils.resource_group import user_instances
 
 BACKUP_DIR = '/opt/archery/backup'
+BACKUP_DIR_MYSQL = '/opt/archery/backup/mysql'
+BACKUP_DIR_MONGO = '/opt/archery/backup/mongo'
 
-if not os.path.exists(BACKUP_DIR):
-    os.makedirs(BACKUP_DIR)
+# Create the backup directories if they don't exist
+os.makedirs(BACKUP_DIR, exist_ok=True)
+os.makedirs(BACKUP_DIR_MYSQL, exist_ok=True)
+os.makedirs(BACKUP_DIR_MONGO, exist_ok=True)
 
 BACKUP_SETTINGS_FILE = '/opt/archery/backup/backup_settings.json'
 BACKUP_SETTINGS = {
@@ -93,15 +97,14 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
     # File name format: <dbType>-<backup_type>-<instance_name>-<database_name>-<table_name>-<timestamp>, depending on the backup type, database name and table name can be empty
     
     # backup_file_name = f"{db_type}_{backup_type}_{db_name + '_' if db_name else ''}_{timestamp}"
-    backup_file_name = f"{db_type}-{backup_type}-{instance.instance_name}-{db_name + '-' if db_name else ''}{table_name + '-' if table_name else ''}-{timestamp}"
-    backup_file_output = os.path.join(BACKUP_DIR, backup_file_name)
+    backup_file_name = f"{db_type}.{backup_type}.{instance.instance_name}.{db_name + '.' if db_name else ''}{table_name + '.' if table_name else ''}{timestamp}"
     # Ensure the backup directory exists
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     try:
         # Backup command for MySQL
         if db_type == 'mysql':
-            backup_file_output += ".sql"  # Ensuring correct file extension
+            backup_file_output = os.path.join(BACKUP_DIR_MYSQL, backup_file_name) + '.sql' 
             command = ["mysqldump",  
                        "-h", instance.host,
                        "-P", str(instance.port),
@@ -125,6 +128,7 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
             
         # Backup command for MongoDB
         elif db_type == 'mongo':
+            backup_file_output = os.path.join(BACKUP_DIR_MONGO, backup_file_name)
             command = [
                 "mongodump", 
                 "--host", instance.host,
