@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1>Backup Dashboard</h1>
+
+        <!-- Backup Settings Section (Automated Backup Configuration) -->
+        <section class="mt-4">
+            <h2>Backup Settings</h2>
+            <form method="post" action="backup/settings/">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="frequency">Backup Frequency:</label>
+                    <select name="frequency" id="frequency" class="form-control">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="time">Backup Time:</label>
+                    <input type="time" name="time" id="time" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="destination">Backup Destination Path:</label>
+                    <input type="text" name="destination" id="destination" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
+            </form>
+        </section>
+
+        <!-- Manual Backup Section -->
+        <section class="mt-5">
+            <h2>Manual Backup</h2>
+            <div class="form-inline">
+                <!-- Instance Selection -->
+                <div class="form-group">
+                    <select id=instance class="form-control selectpicker" name="instance_list"
+                        title="请选择实例"
+                        data-live-search="true">
+                        <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                        <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+                    </select>
+                </div>
+                <!-- Database Selection -->
+                <div class="form-group ml-2">
+                    <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database">
+                        <optgroup id="database-names"></optgroup>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+            </div>
+        </section>
+
+        <!-- Backup History and Downloads Section -->
+        <section class="mt-5">
+            <h2>Backup Files</h2>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Instance</th>
+                        <th>Database</th>
+                        <th>Date Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in backup_files %}
+                    <tr>
+                        <td>{{ file.name }}</td>
+                        <td>{{ file.instance_name }}</td>
+                        <td>{{ file.db_name }}</td>
+                        <td>{{ file.created_at }}</td>
+                        <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+{% endblock content %}
+{% block js %}
+    {% load static %}
+
+<!-- Load jQuery -->
+<script src="{% static 'jquery/jquery.min.js' %}"></script>
+
+<!-- Load Bootstrap JavaScript -->
+<script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+
+<!-- Load Bootstrap-select CSS and JS -->
+<link rel="stylesheet" href="{% static 'bootstrap-select/css/bootstrap-select.min.css' %}">
+<script src="{% static 'bootstrap-select/js/bootstrap-select.min.js' %}"></script>
+    <script>
+        $(document).ready(function () {
+            // Load instances similar to your existing approach
+            $.ajax({
+                type: "get",
+                url: "/group/user_all_instances/",
+                dataType: "json",
+                data: {
+                    db_type: ['mysql', 'mongo']
+                },
+                success: function (data) {
+                    if (data.status === 0) {
+                        let result = data['data'];
+                        $("optgroup[id^='optgroup']").empty();
+                        const supportDb = ['mysql', 'mongo'];
+                        for (let instance of result) {
+                            let instanceOption = "<option value=\"" + instance.id + "\" instance-id=" + instance.id + " instance-type=" + instance.db_type + ">" + instance.instance_name + "</option>";
+                            if (supportDb.includes(instance.db_type)) {
+                                $("#optgroup-" + instance.db_type).append(instanceOption);
+                            }
+                        }
+                        $('#instance').selectpicker('refresh');
+                    } else {
+                        alert("Error loading instances: " + data.msg);
+                    }
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    alert("Error loading instances: " + errorThrown);
+                }
+            });
+
+            // When an instance is selected, load databases
+            $("#instance").change(function () {
+                let instanceId = $(this).val();
+                let dbType = $("#instance option:selected").attr("instance-type");
+
+                if (instanceId) {
+                    $.ajax({
+                        type: "get",
+                        url: "/instance/database/list/",
+                        data: {
+                            instance_id: instanceId,
+                            db_type: dbType
+                        },
+                        success: function (data) {
+                            if (data.status === 0) {
+                                alert("Databases loaded successfully! Select a database to backup.");
+                                console.log(data);
+                                let databases = data['data'];
+                                $("#db_name").empty(); // Clear existing options
+
+                                for (let db of databases) {
+                                    $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
+                                }
+
+                                $('#db_name').selectpicker('refresh');  // Refresh the select picker
+                                $('#backup-btn').prop('disabled', false);  // Enable the backup button
+                            } else {
+                                alert("Failed to load databases: " + data.msg);
+                            }
+                        },
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            alert("Error retrieving databases: " + errorThrown);
+                        }
+                    });
+                } else {
+                    $('#db_name').empty().selectpicker('refresh');  // Clear the database list
+                    $('#backup-btn').prop('disabled', true);  // Disable the backup button
+                }
+            });
+
+            // Handle backup button click (perform backup)
+            $("#backup-btn").click(function () {
+                let instanceId = $("#instance").val();
+                let dbName = $("#db_name").val();
+                if (instanceId && dbName) {
+                    // Perform the backup operation via an AJAX request
+                    $.ajax({
+                        type: "post",
+                        url: "/backup/manual/",
+                        data: {
+                            instance_id: instanceId,
+                            db_name: dbName
+                        },
+                        success: function (data) {
+                            if (data.status === 0) {
+                                alert("Backup performed successfully!");
+                                // Optionally, refresh the backup file list
+                            } else {
+                                alert("Failed to perform backup: " + data.msg);
+                            }
+                        },
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            alert("Error performing backup: " + errorThrown);
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+{% endblock %}
