@@ -1,8 +1,9 @@
 import os
+import shutil
 import subprocess
 from datetime import datetime
 
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from sql.models import Instance
@@ -69,19 +70,39 @@ def manual_backup(request):
     return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
 
 def backup_files(request):
-    """View existing backup files and allow download."""
-    backup_files = list_backup_files()
-    return render(request, 'backup/backup_files.html', {'backup_files': backup_files})
+    if request.method == 'GET':
+        backup_files = list_backup_files()
+        return JsonResponse(backup_files, safe=False)
 
 def download_backup(request, file_name):
-    """Download the selected backup file."""
-    file_path = download_backup_file(file_name)
-    if os.path.exists(file_path):
-        with open(file_path, 'rb') as f:
-            response = HttpResponse(f.read(), content_type="application/octet-stream")
-            response['Content-Disposition'] = f'attachment; filename={file_name}'
-            return response
-    return JsonResponse({'error': 'File not found'}, status=404)
+    """Download the selected backup file (MySQL .sql or MongoDB folder as .zip)."""
+    
+    # Determine if it's MySQL or MongoDB based on the file name
+    if file_name.endswith('.sql'):
+        # MySQL backup (.sql)
+        file_path = os.path.join(BACKUP_DIR_MYSQL, file_name)
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as f:
+                response = HttpResponse(f.read(), content_type='application/octet-stream')
+                response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+                return response
+        else:
+            raise Http404(f"File {file_name} not found")
+    
+    else:
+        # MongoDB backup (directory to be zipped)
+        dir_path = os.path.join(BACKUP_DIR_MONGO, file_name)
+        if os.path.exists(dir_path):
+            # Compress the directory into a .zip file
+            zip_path = f"{dir_path}.zip"
+            shutil.make_archive(dir_path, 'zip', dir_path)
+            
+            with open(zip_path, 'rb') as f:
+                response = HttpResponse(f.read(), content_type='application/zip')
+                response['Content-Disposition'] = f'attachment; filename="{file_name}.zip"'
+                return response
+        else:
+            raise Http404(f"Directory {file_name} not found")
 
 
 def save_backup_settings(settings):
@@ -169,17 +190,60 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
         return False, f"An unexpected error occurred: {str(e)}"
 
 def list_backup_files():
-    """List all backup files."""
-    backup_files = []
-    for filename in os.listdir(BACKUP_DIR):
-        filepath = os.path.join(BACKUP_DIR, filename)
-        if os.path.isfile(filepath):
-            backup_files.append({
+    """List all backup files for MySQL and MongoDB, including metadata like size and creation time."""
+    backup_files = {
+        'MySQL': [],
+        'MongoDB': []
+    }
+
+    # List MySQL backup files (.sql files)
+    for filename in os.listdir(BACKUP_DIR_MYSQL):
+        filepath = os.path.join(BACKUP_DIR_MYSQL, filename)
+        if os.path.isfile(filepath) and filename.endswith('.sql'):
+            backup_files['MySQL'].append({
                 'name': filename,
-                'db_name': 'MySQL' if 'mysql' in filename else 'MongoDB',
-                'created_at': datetime.fromtimestamp(os.path.getctime(filepath))
+                'db_name': extract_db_name(filename),
+                'backup_type': extract_backup_type(filename),  # Extract backup type (instance, db, or table)
+                'size': os.path.getsize(filepath),  # File size in bytes
+                'created_at': datetime.fromtimestamp(os.path.getctime(filepath)).strftime("%Y-%m-%d %H:%M:%S")
             })
+
+    # List MongoDB backup directories (folders)
+    for dirname in os.listdir(BACKUP_DIR_MONGO):
+        dirpath = os.path.join(BACKUP_DIR_MONGO, dirname)
+        if os.path.isdir(dirpath):
+            backup_files['MongoDB'].append({
+                'name': dirname,
+                'db_name': extract_db_name(dirname),  # Extract db name
+                'backup_type': extract_backup_type(dirname),  # Extract backup type (instance, db, or collection)
+                'size': calculate_directory_size(dirpath),  # Calculate folder size
+                'created_at': datetime.fromtimestamp(os.path.getctime(dirpath)).strftime("%Y-%m-%d %H:%M:%S")
+            })
+
     return backup_files
+
+def extract_db_name(name):
+    """Extract the database name from the file or directory name."""
+    parts = name.split('.')
+    if len(parts) > 3:
+        return parts[3]  # The db_name should be the 4th part (0-indexed)
+    return "Unknown"
+
+def extract_backup_type(name):
+    """Extract the type of backup from the file or directory name."""
+    parts = name.split('.')
+    if len(parts) > 1:
+        return parts[1]  # The backup type is the 2nd part (0-indexed)
+    return "Unknown"
+
+def calculate_directory_size(directory):
+    """Calculate the total size of a directory in bytes."""
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_size += os.path.getsize(fp)
+    return total_size
 
 def download_backup_file(file_name):
     """Return the full path to the backup file."""

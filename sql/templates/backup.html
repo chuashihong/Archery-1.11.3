@@ -44,14 +44,13 @@
         </div>
     </div>
 </section>
-
 <!-- Backup History and Downloads Section -->
 <section class="mt-5">
     <h2>Backup Files</h2>
 
-    <!-- MySQL Backup Files -->
+    <!-- MySQL Backups -->
     <h3>MySQL Backups</h3>
-    <table class="table table-striped">
+    <table class="table table-striped" id="mysql-backup-table">
         <thead>
             <tr>
                 <th>File Name</th>
@@ -62,23 +61,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for file in backup_files.MySQL %}
-            <tr>
-                <td>{{ file.name }}</td>
-                <td>{{ file.backup_type }}</td>
-                <td>{{ file.size|filesizeformat }}</td>
-                <td>{{ file.created_at }}</td>
-                <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download</a></td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5">No MySQL backups found.</td></tr>
-            {% endfor %}
+            <!-- MySQL backup files will be dynamically inserted here -->
         </tbody>
     </table>
 
-    <!-- MongoDB Backup Folders -->
+    <!-- MongoDB Backups -->
     <h3>MongoDB Backups</h3>
-    <table class="table table-striped">
+    <table class="table table-striped" id="mongo-backup-table">
         <thead>
             <tr>
                 <th>Folder Name</th>
@@ -89,19 +78,10 @@
             </tr>
         </thead>
         <tbody>
-            {% for file in backup_files.MongoDB %}
-            <tr>
-                <td>{{ file.name }}</td>
-                <td>{{ file.backup_type }}</td>
-                <td>{{ file.size|filesizeformat }}</td>
-                <td>{{ file.created_at }}</td>
-                <td><a href="/backup/download/{{ file.name }}" class="btn btn-success">Download (ZIP)</a></td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5">No MongoDB backups found.</td></tr>
-            {% endfor %}
+            <!-- MongoDB backup files will be dynamically inserted here -->
         </tbody>
     </table>
+
 </section>
 
 <!-- Backup Settings Section -->
@@ -141,9 +121,12 @@
             let backupType = $(this).val();
             if (backupType === "instance") {
                 $("#db_container, #table_container").hide();
+                $("#db_name").val('');
+                $("#table_name").val('');
             } else if (backupType === "database") {
                 $("#db_container").show();
                 $("#table_container").hide();
+                $("#table_name").val('');
             } else if (backupType === "table") {
                 $("#db_container, #table_container").show();
             }
@@ -204,6 +187,54 @@
             });
         }
 
+        function load_backup_files() {
+            // AJAX request to retrieve backup files
+            $.ajax({
+                type: "GET",  // GET request for retrieving data
+                url: "/backup/files/",  // Adjust this URL based on your API endpoint
+                success: function (data) {
+                    console.log(data);  // Log the response to check structure
+                    // Sort the backup files by date (newest first)
+                    data.MySQL.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    // MySQL Backup Rendering
+                    if (Array.isArray(data.MySQL)) {
+                        $("#mysql-backup-table tbody").empty();  // Clear the current table content
+                        data.MySQL.forEach(function (file) {
+                            $("#mysql-backup-table tbody").append(`
+                        <tr>
+                            <td>${file.name}</td>
+                            <td>${file.backup_type}</td>
+                            <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
+                            <td>${file.created_at}</td>
+                            <td><a href="/backup/download/${file.name}" class="btn btn-success">Download</a></td>
+                        </tr>
+                    `);
+                        });
+                    }
+
+                    // MongoDB Backup Rendering
+                    if (Array.isArray(data.MongoDB)) {
+                        $("#mongo-backup-table tbody").empty();  // Clear the current table content
+                        data.MongoDB.forEach(function (file) {
+                            $("#mongo-backup-table tbody").append(`
+                        <tr>
+                            <td>${file.name}</td>
+                            <td>${file.backup_type}</td>
+                            <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
+                            <td>${file.created_at}</td>
+                            <td><a href="/backup/download/${file.name}" class="btn btn-success">Download (ZIP)</a></td>
+                        </tr>
+                    `);
+                        });
+                    }
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    console.error("Error fetching backup files:", errorThrown);
+                    alert("Error loading backup files: " + errorThrown);
+                }
+            });
+        }
+
         // When the instance is selected, load the corresponding databases
         $("#instance").change(function () {
             database_list(); // Load databases for selected instance
@@ -230,6 +261,10 @@
                 alert("Error loading instances: " + errorThrown);
             }
         });
+
+        // Load backup files on page load
+        load_backup_files();
+
         // Perform backup button click event
         $("#backup-btn").click(function () {
             // Disable the button to prevent multiple clicks
@@ -271,7 +306,8 @@
                     // Check the response from the server
                     if (data.success) {
                         alert("Backup successful!");
-                        // Optionally, reload the backup history or any other elements
+                        // Reload the backup files
+                        load_backup_files();
                     } else {
                         alert("Backup failed: " + data.message);
                     }
