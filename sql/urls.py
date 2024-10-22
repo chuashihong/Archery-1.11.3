@@ -30,8 +30,9 @@ from common.utils import ding_api
 
 urlpatterns = [
     path("", views.index),
-    path('backup/', views.backup_dashboard, name='backup_dashboard'),
-    path('backup/manual/', backup_utils.manual_backup, name='manual_backup'),
+    path('backup/', views.backup_manual, name='backup_dashboard'),
+    path('backup/auto', views.backup_auto, name='backup_auto'),
+    path('backup/manual/', backup_utils.perform_manual_backup, name='manual_backup'),
     path('backup/files/', backup_utils.list_manual_backup_files, name='backup_files'),
     path('api/backup/routines/', backup_utils.get_backup_routines, name='get_backup_routines'),
     path('api/backup/history/', backup_utils.get_backup_history, name='get_backup_history'),

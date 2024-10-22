@@ -2,20 +2,23 @@
 
 {% block content %}
 <!-- Backup Options Selection -->
-<h2>Manual Backup</h2>
+<h2>Auto Backup Dashboard</h2>
 <section class="mt-5">
-    <div class="form-group">
-        <label for="backup_type">Backup Type:</label>
-        <select id="backup_type" class="form-control">
-            <option value="instance" selected>Backup Entire Instance</option>
-            <option value="database">Backup Specific Database</option>
-            <option value="table">Backup Specific Table</option>
-        </select>
-    </div>
-
-    <!-- Backup Options (Instance, Database, Table) -->
-    <div>
-        <div id="toolbar" class="form-inline pull-left">
+    <!-- Form for creating new automated backup routine -->
+    <form method="post" action="/backup/automated/create/">
+        {% csrf_token %}
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Create New Backup Routine</h4>
+        <div class="form-group">
+            <label for="backup_type">Backup Type:</label>
+            <select id="backup_type" class="form-control">
+                <option value="instance" selected>Backup Entire Instance</option>
+                <option value="database">Backup Specific Database</option>
+                <option value="table">Backup Specific Table/Collection</option>
+            </select>
+        </div>
+        <div class="modal-body">
             <div class="form-group">
                 <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
                     data-live-search="true">
@@ -23,7 +26,6 @@
                     <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
                 </select>
             </div>
-
             <div id="db_container" class="form-group ml-2" style="display: none;">
                 <label for="db_name">Select Database</label>
                 <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
@@ -35,91 +37,83 @@
                     title="Select Table"></select>
             </div>
 
-            <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
+            <div class="form-group">
+                <label for="interval">Backup Interval:</label>
+                <select name="interval" id="interval" class="form-control" required>
+                    <option value="minutely">Minutely</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="form-group" id="backup-time-container">
+                <!-- if the interval is minutely or hourly, hide the time input -->
+                <label for="time">Backup Time:</label>
+                <input type="time" name="time" id="time" class="form-control">
+            </div>
         </div>
-    </div>
-    <!-- Loading Spinner -->
-    <div id="loading-spinner" style="display: none;">
-        <div class="spinner-border text-primary" role="status">
-            <span class="sr-only">Loading...</span>
-        </div>
-    </div>
+        <button class="btn btn-primary mt-3" id="create-backup-routine-btn">Create New Backup Routine</button>
+    </form>
 </section>
-<!-- Backup History and Downloads Section -->
-<section class="mt-5">
-    <h2>Backup Files</h2>
-
-    <!-- MySQL Backups -->
-    <h3>MySQL Backups</h3>
-    <table class="table table-striped" id="mysql-backup-table">
-        <thead>
-            <tr>
-                <th>File Name</th>
-                <th>Backup Type</th>
-                <th>Size</th>
-                <th>Date Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- AJAX load_backup_files() will populate this table -->
-        </tbody>
-    </table>
-
-    <!-- MongoDB Backups -->
-    <h3>MongoDB Backups</h3>
-    <table class="table table-striped" id="mongo-backup-table">
-        <thead>
-            <tr>
-                <th>Folder Name</th>
-                <th>Backup Type</th>
-                <th>Size</th>
-                <th>Date Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!--AJAX load_backup_files() will populate this table -->    
-        </tbody>
-    </table>
-
-</section>
-
 <!-- Auto Backup Settings Section -->
 <section class="mt-4">
     <h2>Automated Backup Settings</h2>
-
     <!-- Form for creating new automated backup routine -->
     <form method="post" action="/backup/automated/create/">
         {% csrf_token %}
-        <div class="form-group">
-            <label for="db_type">Database Type:</label>
-            <select name="db_type" id="db_type" class="form-control" required>
-                <option value="mysql">MySQL</option>
-                <option value="mongodb">MongoDB</option>
-            </select>
+        <div class="modal fade" id="deleteBinlog" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                                aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="myModalLabel">Create New Backup Routine</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
+                                data-live-search="true">
+                                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                                <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="backup_type">Backup Type:</label>
+                            <select name="backup_type" id="backup_type" class="form-control" required>
+                                <option value="instance">Instance</option>
+                                <option value="database">Database</option>
+                                <option value="table">Table/Collection</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="interval">Backup Interval:</label>
+                            <select name="interval" id="interval" class="form-control" required>
+                                <option value="minutely">Minutely</option>
+                                <option value="hourly">Hourly</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                
+                        <div class="form-group" id="backup-time-container">
+                            <!-- if the interval is minutely or hourly, hide the time input -->
+                            <label for="time">Backup Time:</label>
+                            <input type="time" name="time" id="time" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-default">Confirm</button>
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="backup_type">Backup Type:</label>
-            <select name="backup_type" id="backup_type" class="form-control" required>
-                <option value="instance">Instance</option>
-                <option value="database">Database</option>
-                <option value="table">Table/Collection</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="interval">Backup Interval:</label>
-            <select name="interval" id="interval" class="form-control" required>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="time">Backup Time:</label>
-            <input type="time" name="time" id="time" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-primary mt-3">Create Backup Routine</button>
+        <button class="btn btn-primary mt-3"
+            id="create-backup-routine-btn"
+        >
+            Create New Backup Routine</button>
     </form>
 
     <!-- Table showing created automated backup routines -->
@@ -169,6 +163,21 @@
 <script src="{% static 'bootstrap-table/js/bootstrap-table-export.min.js' %}"></script>
 <script src="{% static 'bootstrap-table/js/tableExport.min.js' %}"></script>
 <script>
+
+// if the interval is minutely or hourly, hide the time input
+$('#interval').change(function () {
+    let interval = $(this).val();
+    if (interval === 'minutely' || interval === 'hourly') {
+        //not required
+        $('#time').prop('required', false);
+        $('#backup-time-container').hide();
+    } else {
+        //required
+        $('#time').prop('required', true);
+        $('#backup-time-container').show();
+    }
+});
+
 function load_backup_routine(params) {
     $.ajax({
         url: "/api/backup/routines/",
@@ -348,6 +357,14 @@ function load_backup_files() {
         }
     });
 }
+
+
+
+
+$('#create-backup-routine-btn').click(function () {
+    $('#backup-routine-modal').modal('show');
+
+});
 
 
 // When the instance is selected, load the corresponding databases

@@ -110,9 +110,13 @@ def twofa(request):
         },
     )
 
-def backup_dashboard(request):
-    """View for the backup dashboard."""
-    return render(request, 'backup.html')
+def backup_manual(request):
+    """View for the manual backup settings."""
+    return render(request, 'backup_manual.html')
+
+def backup_auto(request):
+    """View for the auto backup settings."""
+    return render(request, 'backup_auto.html')
 
 @permission_required("sql.menu_dashboard", raise_exception=True)
 def dashboard(request):

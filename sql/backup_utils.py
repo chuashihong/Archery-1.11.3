@@ -53,7 +53,7 @@ os.makedirs(BACKUP_DIR_AUTOMATED_HISTORY, exist_ok=True)
 
 #     return render(request, 'backup/backup_settings.html')
 
-def manual_backup(request):
+def perform_manual_backup(request):
     """Trigger a manual backup of the selected database or table."""
     if request.method == 'POST':
         backup_type = request.POST.get("backup_type")
