@@ -12,12 +12,14 @@ kubectl delete -f .\k8s\mongo-deployment.yml
 kubectl delete -f .\k8s\mongo-service.yml
 kubectl delete -f .\k8s\mysql-deployment.yml
 kubectl delete -f .\k8s\mysql-service.yml
+kubectl delete -f .\k8s\mysql-configmap.yml
 
 Write-Host "SCRIPT LOG: Applying new deployments and services..."
 
 # Apply the MongoDB and MySQL deployments and services
 kubectl apply -f .\k8s\mongo-deployment.yml
 kubectl apply -f .\k8s\mongo-service.yml
+kubectl apply -f .\k8s\mysql-configmap.yml
 kubectl apply -f .\k8s\mysql-deployment.yml
 kubectl apply -f .\k8s\mysql-service.yml
 

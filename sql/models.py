@@ -753,6 +753,25 @@ class ParamHistory(models.Model):
         db_table = "param_history"
         verbose_name = "实例参数修改历史"
         verbose_name_plural = "实例参数修改历史"
+class BackupHistory(models.Model):
+    """Model to store history of backup operations."""
+    
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE, verbose_name="实例")
+    db_type = models.CharField("数据库类型", max_length=50)  # e.g., 'mysql', 'mongodb'
+    backup_type = models.CharField("备份类型", max_length=50)  # e.g., 'instance', 'database', 'table/collection'
+    size = models.BigIntegerField("备份文件大小")  # Size in bytes
+    status = models.CharField("备份状态", max_length=20)  # e.g., 'success', 'failed'
+    created_at = models.DateTimeField("备份时间", auto_now_add=True)
+
+    class Meta:
+        managed = True
+        ordering = ["-created_at"]
+        db_table = "backup_history"
+        verbose_name = "备份历史"
+        verbose_name_plural = "备份历史"
+
+    def __str__(self):
+        return f"{self.db_type} - {self.backup_type} - {self.created_at}"
 
 
 class ArchiveConfig(models.Model, WorkflowAuditMixin):

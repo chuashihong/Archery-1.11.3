@@ -6,50 +6,52 @@ from datetime import datetime
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
-from sql.models import Instance
+from sql.models import BackupHistory, Instance
 from sql.utils.resource_group import user_instances
 
 BACKUP_DIR = '/opt/archery/backup'
 BACKUP_DIR_MYSQL = '/opt/archery/backup/mysql'
 BACKUP_DIR_MONGO = '/opt/archery/backup/mongo'
+BACKUP_DIR_AUTOMATED_HISTORY = '/opt/archery/backup/automated_history'
 
 # Create the backup directories if they don't exist
 os.makedirs(BACKUP_DIR, exist_ok=True)
 os.makedirs(BACKUP_DIR_MYSQL, exist_ok=True)
 os.makedirs(BACKUP_DIR_MONGO, exist_ok=True)
+os.makedirs(BACKUP_DIR_AUTOMATED_HISTORY, exist_ok=True)
 
-BACKUP_SETTINGS_FILE = '/opt/archery/backup/backup_settings.json'
-BACKUP_SETTINGS = {
-    # Default backup settings
-    'backup_frequency': 'daily',
-    'backup_time': '00:00',
-    'backup_destination': BACKUP_DIR
-}
+# BACKUP_SETTINGS_FILE = '/opt/archery/backup/backup_settings.json'
+# BACKUP_SETTINGS = {
+#     # Default backup settings
+#     'backup_frequency': 'daily',
+#     'backup_time': '00:00',
+#     'backup_destination': BACKUP_DIR
+# }
 
 # Create a default backup settings file if it doesn't exist
-if not os.path.exists(BACKUP_SETTINGS_FILE):
-    with open(BACKUP_SETTINGS_FILE, 'w') as f:
-        f.write('{"backup_frequency": "daily", "backup_time": "00:00", "backup_destination": "/opt/archery/backup"}')
+# if not os.path.exists(BACKUP_SETTINGS_FILE):
+#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
+#         f.write('{"backup_frequency": "daily", "backup_time": "00:00", "backup_destination": "/opt/archery/backup"}')
 
 
-def backup_settings(request):
-    """View for saving backup settings."""
-    if request.method == 'POST':
-        frequency = request.POST.get('frequency')
-        time = request.POST.get('time')
-        destination = request.POST.get('destination')
+# def backup_settings(request):
+#     """View for saving backup settings."""
+#     if request.method == 'POST':
+#         frequency = request.POST.get('frequency')
+#         time = request.POST.get('time')
+#         destination = request.POST.get('destination')
 
-        # Store the settings (you may want to persist these settings in a file or DB)
-        BACKUP_SETTINGS['frequency'] = frequency
-        BACKUP_SETTINGS['time'] = time
-        BACKUP_SETTINGS['destination'] = destination
+#         # Store the settings (you may want to persist these settings in a file or DB)
+#         BACKUP_SETTINGS['frequency'] = frequency
+#         BACKUP_SETTINGS['time'] = time
+#         BACKUP_SETTINGS['destination'] = destination
 
-        # Optionally, save the settings to a config file or database
-        save_backup_settings(BACKUP_SETTINGS)
+#         # Optionally, save the settings to a config file or database
+#         save_backup_settings(BACKUP_SETTINGS)
 
-        return redirect('backup_dashboard')  # Redirect back to the dashboard
+#         return redirect('backup_dashboard')  # Redirect back to the dashboard
 
-    return render(request, 'backup/backup_settings.html')
+#     return render(request, 'backup/backup_settings.html')
 
 def manual_backup(request):
     """Trigger a manual backup of the selected database or table."""
@@ -69,10 +71,46 @@ def manual_backup(request):
 
     return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
 
-def backup_files(request):
+def list_manual_backup_files(request):
+    """Handle GET requests and return a list of backup files for MySQL and MongoDB."""
     if request.method == 'GET':
-        backup_files = list_backup_files()
+        backup_files = {
+            'MySQL': list_backup_files(BACKUP_DIR_MYSQL, is_file=True, file_extension='.sql'),
+            'MongoDB': list_backup_files(BACKUP_DIR_MONGO, is_file=False)
+        }
         return JsonResponse(backup_files, safe=False)
+
+def list_backup_files(backup_dir, is_file=True, file_extension=''):
+    """List all backup files or directories, including metadata like size and creation time."""
+    backup_list = []
+    
+    for entry in os.listdir(backup_dir):
+        entry_path = os.path.join(backup_dir, entry)
+        
+        if is_file:
+            if os.path.isfile(entry_path) and entry.endswith(file_extension):
+                backup_list.append(generate_backup_metadata(entry, entry_path, is_file=True))
+        else:
+            if os.path.isdir(entry_path):
+                backup_list.append(generate_backup_metadata(entry, entry_path, is_file=False))
+
+    return backup_list
+
+def generate_backup_metadata(name, path, is_file):
+    """Generate metadata for a backup file or directory."""
+    metadata = {
+        'name': name,
+        'db_name': extract_db_name(name),
+        'backup_type': extract_backup_type(name),
+        'created_at': datetime.fromtimestamp(os.path.getctime(path)).strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    if is_file:
+        metadata['size'] = os.path.getsize(path)
+    else:
+        metadata['size'] = calculate_directory_size(path)
+    
+    return metadata
 
 def download_backup(request, file_name):
     """Download the selected backup file (MySQL .sql or MongoDB folder as .zip)."""
@@ -105,10 +143,10 @@ def download_backup(request, file_name):
             raise Http404(f"Directory {file_name} not found")
 
 
-def save_backup_settings(settings):
-    """Save backup settings to a file."""
-    with open(BACKUP_SETTINGS_FILE, 'w') as f:
-        f.write(str(settings))
+# def save_backup_settings(settings):
+#     """Save backup settings to a file."""
+#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
+#         f.write(str(settings))
 
 def perform_backup(instance, backup_type, db_name, table_name=None):
     """Perform a manual backup of the specified database or table."""
@@ -189,39 +227,6 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
     except Exception as e:
         return False, f"An unexpected error occurred: {str(e)}"
 
-def list_backup_files():
-    """List all backup files for MySQL and MongoDB, including metadata like size and creation time."""
-    backup_files = {
-        'MySQL': [],
-        'MongoDB': []
-    }
-
-    # List MySQL backup files (.sql files)
-    for filename in os.listdir(BACKUP_DIR_MYSQL):
-        filepath = os.path.join(BACKUP_DIR_MYSQL, filename)
-        if os.path.isfile(filepath) and filename.endswith('.sql'):
-            backup_files['MySQL'].append({
-                'name': filename,
-                'db_name': extract_db_name(filename),
-                'backup_type': extract_backup_type(filename),  # Extract backup type (instance, db, or table)
-                'size': os.path.getsize(filepath),  # File size in bytes
-                'created_at': datetime.fromtimestamp(os.path.getctime(filepath)).strftime("%Y-%m-%d %H:%M:%S")
-            })
-
-    # List MongoDB backup directories (folders)
-    for dirname in os.listdir(BACKUP_DIR_MONGO):
-        dirpath = os.path.join(BACKUP_DIR_MONGO, dirname)
-        if os.path.isdir(dirpath):
-            backup_files['MongoDB'].append({
-                'name': dirname,
-                'db_name': extract_db_name(dirname),  # Extract db name
-                'backup_type': extract_backup_type(dirname),  # Extract backup type (instance, db, or collection)
-                'size': calculate_directory_size(dirpath),  # Calculate folder size
-                'created_at': datetime.fromtimestamp(os.path.getctime(dirpath)).strftime("%Y-%m-%d %H:%M:%S")
-            })
-
-    return backup_files
-
 def extract_db_name(name):
     """Extract the database name from the file or directory name."""
     parts = name.split('.')
@@ -248,3 +253,33 @@ def calculate_directory_size(directory):
 def download_backup_file(file_name):
     """Return the full path to the backup file."""
     return os.path.join(BACKUP_DIR, file_name)
+
+def get_backup_routines():
+    pass
+
+def get_backup_history(request):
+    """Fetches the backup history for the instance."""
+    limit = int(request.POST.get("limit", 10))
+    offset = int(request.POST.get("offset", 0))
+    instance_id = request.POST.get("instance_id")
+    search = request.POST.get("search", "")
+    
+    backups = BackupHistory.objects.filter(instance__id=instance_id)
+    
+    # If search query exists, filter by database type or other relevant fields
+    if search:
+        backups = backups.filter(db_type__icontains=search)
+    
+    backups = backups[offset:offset + limit].values(
+        "instance__instance_name", "db_type", "backup_type", "size", "created_at", "status"
+    )
+    
+    # Serialize the data for JSON response
+    rows = list(backups)
+    result = {
+        "status": 0,
+        "msg": "Success",
+        "data": rows
+    }
+    
+    return JsonResponse(result)

@@ -31,9 +31,10 @@ from common.utils import ding_api
 urlpatterns = [
     path("", views.index),
     path('backup/', views.backup_dashboard, name='backup_dashboard'),
-    path('backup/settings/', backup_utils.backup_settings, name='backup_settings'),
     path('backup/manual/', backup_utils.manual_backup, name='manual_backup'),
-    path('backup/files/', backup_utils.backup_files, name='backup_files'),
+    path('backup/files/', backup_utils.list_manual_backup_files, name='backup_files'),
+    path('api/backup/routines/', backup_utils.get_backup_routines, name='get_backup_routines'),
+    path('api/backup/history/', backup_utils.get_backup_history, name='get_backup_history'),
     path('backup/download/<str:file_name>/', backup_utils.download_backup, name='download_backup'),
     path("jsi18n/", JavaScriptCatalog.as_view(), name="javascript-catalog"),
     path("index/", views.index),

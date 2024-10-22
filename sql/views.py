@@ -5,8 +5,8 @@ import traceback
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponseRedirect, FileResponse, Http404, JsonResponse, HttpResponse
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponseRedirect, FileResponse, Http404
 from django.urls import reverse
 
 from django.conf import settings
@@ -15,8 +15,6 @@ from sql.engines import get_engine, engine_map
 from common.utils.permission import superuser_required
 from common.utils.convert import Convert
 from sql.utils.tasks import task_info
-from . forms import BackupSettingsForm  # Import the form for backup settings
-from .backup_utils import perform_backup, list_backup_files, download_backup_file, save_backup_settings 
 
 from .models import (
     Users,
