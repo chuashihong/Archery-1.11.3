@@ -4,59 +4,62 @@
 {% load static %}
 <link href="{% static 'css/tailwind.min.css' %}" rel="stylesheet">
 <!-- Backup Options Selection -->
-<h2>Manual Backup</h2>
-<section class="mt-5">
-    <div class="form-group">
-        <label for="backup_type">Backup Type:</label>
-        <select id="backup_type" class="form-control">
+<h2 class="text-2xl font-semibold mb-4">Manual Backup</h2>
+
+<section class="mt-8 p-6 bg-white shadow-lg rounded-lg">
+    <div class="form-group mb-5">
+        <label for="backup_type" class="block text-sm font-medium text-gray-700">Backup Type:</label>
+        <select id="backup_type" class="form-control block w-full mt-1 rounded-md border-gray-300 shadow-sm">
             <option value="instance" selected>Backup Entire Instance</option>
             <option value="database">Backup Specific Database</option>
             <option value="table">Backup Specific Table</option>
         </select>
     </div>
+
     <div>
-        <div id="toolbar" class="form-inline pull-left">
+        <div id="toolbar" class="form-inline flex items-center space-x-4">
+            <!-- Select Instance -->
             <div class="form-group">
-                <div class="">
-                    <label for="instance">Select Instance:</label>
-                </div>
-                <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
-                    data-live-search="true">
+                <label for="instance" class="block text-sm font-medium text-gray-700">Select Instance:</label>
+                <select id="instance" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm"
+                    name="instance_list" title="请选择实例" data-live-search="true">
                     <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
                     <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
                 </select>
             </div>
+
+            <!-- Select Database (hidden by default) -->
             <div id="db_container" class="form-group" style="display: none;">
-                <div>
-                    <label for="db_name">Select Database</label>
-                </div> 
-                <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
+                <label for="db_name" class="block text-sm font-medium text-gray-700">Select Database</label>
+                <select id="db_name" name="db_name" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm" title="Select Database"></select>
             </div>
 
+            <!-- Select Table (hidden by default) -->
             <div id="table_container" class="form-group" style="display: none;">
-                <div>
-                    <label for="table_name">Select Table</label>
-                </div>
-                <select id="table_name" name="table_name" class="form-control selectpicker" title="Select Table"></select>
+                <label for="table_name" class="block text-sm font-medium text-gray-700">Select Table</label>
+                <select id="table_name" name="table_name" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm" title="Select Table"></select>
             </div>
 
+            <!-- Backup Button -->
+            <button type="button" class="btn btn-warning ml-3 mt-5 px-4 py-2 rounded-md bg-yellow-500 text-white hover:bg-yellow-600 focus:outline-none focus:ring focus:ring-yellow-300" id="backup-btn" disabled>Perform Backup</button>
         </div>
-        <button type="button" class="btn btn-warning ml-3" id="backup-btn" disabled>Perform Backup</button>
     </div>
 </section>
+
 <!-- Backup History and Downloads Section -->
-<h2>Backup Files</h2>
-<section class="mt-5">
+<h2 class="text-2xl font-semibold mt-10 mb-4">Backup Files</h2>
+
+<section class="mt-5 p-6 bg-white shadow-lg rounded-lg">
     <!-- MySQL Backups -->
-    <h3>MySQL Backups</h3>
-    <table class="table table-striped" id="mysql-backup-table">
-        <thead>
+    <h3 class="text-xl font-semibold mb-4">MySQL Backups</h3>
+    <table class="table table-striped w-full" id="mysql-backup-table">
+        <thead class="bg-gray-100">
             <tr>
-                <th>File Name</th>
-                <th>Backup Type</th>
-                <th>Size</th>
-                <th>Date Created</th>
-                <th>Actions</th>
+                <th class="px-4 py-2">File Name</th>
+                <th class="px-4 py-2">Backup Type</th>
+                <th class="px-4 py-2">Size</th>
+                <th class="px-4 py-2">Date Created</th>
+                <th class="px-4 py-2">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -65,22 +68,23 @@
     </table>
 
     <!-- MongoDB Backups -->
-    <h3>MongoDB Backups</h3>
-    <table class="table table-striped" id="mongo-backup-table">
-        <thead>
+    <h3 class="text-xl font-semibold mt-8 mb-4">MongoDB Backups</h3>
+    <table class="table table-striped w-full" id="mongo-backup-table">
+        <thead class="bg-gray-100">
             <tr>
-                <th>Folder Name</th>
-                <th>Backup Type</th>
-                <th>Size</th>
-                <th>Date Created</th>
-                <th>Actions</th>
+                <th class="px-4 py-2">Folder Name</th>
+                <th class="px-4 py-2">Backup Type</th>
+                <th class="px-4 py-2">Size</th>
+                <th class="px-4 py-2">Date Created</th>
+                <th class="px-4 py-2">Actions</th>
             </tr>
         </thead>
         <tbody>
-            <!--AJAX load_backup_files() will populate this table -->    
+            <!-- AJAX load_backup_files() will populate this table -->    
         </tbody>
     </table>
 </section>
+
 
 {% endblock %}
 
@@ -89,92 +93,6 @@
 <script src="{% static 'bootstrap-table/js/bootstrap-table-export.min.js' %}"></script>
 <script src="{% static 'bootstrap-table/js/tableExport.min.js' %}"></script>
 <script>
-
-// if the interval is minutely or hourly, hide the time input
-$('#interval').change(function () {
-    let interval = $(this).val();
-    if (interval === 'minutely' || interval === 'hourly') {
-        //not required
-        $('#time').prop('required', false);
-        $('#backup-time-container').hide();
-    } else {
-        //required
-        $('#time').prop('required', true);
-        $('#backup-time-container').show();
-    }
-});
-
-function load_backup_routine(params) {
-    $.ajax({
-        url: "/api/backup/routines/",
-        type: "GET",
-        success: function (data) {
-            // Clear the table content
-            $("#backup-routines-table tbody").empty();
-
-            if (data.length === 0) {
-                $("#backup-routines-table tbody").append(`
-                    <tr><td colspan="6" class="text-center">No backup routines available</td></tr>
-                `);
-            }
-
-            // Populate the table with the received data
-            data.forEach(function (routine) {
-                $("#backup-routines-table tbody").append(`
-                <tr>
-                    <td>${routine.db_type}</td>
-                    <td>${routine.backup_type}</td>
-                    <td>${routine.interval}</td>
-                    <td>${routine.time}</td>
-                    <td>${routine.status}</td>
-                    <td>
-                        <a href="/backup/automated/toggle/${routine.id}" class="btn btn-secondary">
-                            ${routine.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </a>
-                        <a href="/backup/automated/delete/${routine.id}" class="btn btn-danger">Delete</a>
-                    </td>
-                </tr>
-            `);
-            });
-        },
-        error: function (xhr, status, error) {
-            console.error("Error fetching backup routines:", error);
-        }
-    });
-}
-
-function load_backup_history(params) {
-    $.ajax({
-        url: "/api/backup/history/",
-        type: "GET",
-        success: function (data) {
-            // Clear the table content
-            $("#backup-history-table tbody").empty();
-
-            if (data.length === 0) {
-                $("#backup-history-table tbody").append(`
-                    <tr><td colspan="5" class="text-center">No backup history available</td></tr>
-                `);
-            }
-
-            // Populate the table with the received data
-            data.forEach(function (backup) {
-                $("#backup-history-table tbody").append(`
-                <tr>
-                    <td>${backup.timestamp}</td>
-                    <td>${backup.db_type}</td>
-                    <td>${backup.backup_type}</td>
-                    <td>${(backup.size / (1024 * 1024)).toFixed(2)} MB</td>
-                    <td>${backup.status}</td>
-                </tr>
-            `);
-            });
-        },
-        error: function (xhr, status, error) {
-            console.error("Error fetching backup history:", error);
-        }
-    });
-}
 
 function showLoading() {
     $('#loading-spinner').show();
