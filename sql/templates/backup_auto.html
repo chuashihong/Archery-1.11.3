@@ -1,90 +1,58 @@
 {% extends "base.html" %}
-
+{% load static %}
+<link href="{% static 'css/tailwind.min.css' %}" rel="stylesheet">
 {% block content %}
-<!-- Backup Options Selection -->
-<h2>Auto Backup Dashboard</h2>
-<section class="mt-5">
-    <!-- Form for creating new automated backup routine -->
-    <form method="post" action="/backup/automated/create/">
-        {% csrf_token %}
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
-                aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="myModalLabel">Create New Backup Routine</h4>
-        <div class="form-group">
-            <label for="backup_type">Backup Type:</label>
-            <select id="backup_type" class="form-control">
-                <option value="instance" selected>Backup Entire Instance</option>
-                <option value="database">Backup Specific Database</option>
-                <option value="table">Backup Specific Table/Collection</option>
-            </select>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
-                    data-live-search="true">
-                    <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
-                    <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
-                </select>
-            </div>
-            <div id="db_container" class="form-group ml-2" style="display: none;">
-                <label for="db_name">Select Database</label>
-                <select id="db_name" name="db_name" class="form-control selectpicker" title="Select Database"></select>
-            </div>
+<!-- Backup Options Section -->
+<h2 class="text-3xl font-bold mb-6">Auto Backup Dashboard</h2>
 
-            <div id="table_container" class="form-group ml-2" style="display: none;">
-                <label for="table_name">Select Table</label>
-                <select id="table_name" name="table_name" class="form-control selectpicker"
-                    title="Select Table"></select>
-            </div>
+<section class="mt-8 p-6 bg-white shadow-lg rounded-lg">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold mb-6">Backup Routine</h2>
+        <!-- Button to open modal -->
+        <button class="btn btn-primary" data-toggle="modal" data-target="#backupModal">
+            <icon class="fas fa-plus mr-2"></icon>
+            Create New Backup Routine
+        </button>
+    </div>
 
-            <div class="form-group">
-                <label for="interval">Backup Interval:</label>
-                <select name="interval" id="interval" class="form-control" required>
-                    <option value="minutely">Minutely</option>
-                    <option value="hourly">Hourly</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                </select>
-            </div>
-            <div class="form-group" id="backup-time-container">
-                <!-- if the interval is minutely or hourly, hide the time input -->
-                <label for="time">Backup Time:</label>
-                <input type="time" name="time" id="time" class="form-control">
-            </div>
-        </div>
-        <button class="btn btn-primary mt-3" id="create-backup-routine-btn">Create New Backup Routine</button>
-    </form>
-</section>
-<!-- Auto Backup Settings Section -->
-<section class="mt-4">
-    <h2>Automated Backup Settings</h2>
-    <!-- Form for creating new automated backup routine -->
-    <form method="post" action="/backup/automated/create/">
-        {% csrf_token %}
-        <div class="modal fade" id="deleteBinlog" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
-                                aria-hidden="true">&times;</span></button>
-                        <h4 class="modal-title" id="myModalLabel">Create New Backup Routine</h4>
-                    </div>
-                    <div class="modal-body">
+    <!-- Modal for creating backup routine -->
+    <div class="modal fade" id="backupModal" tabindex="-1" role="dialog" aria-labelledby="backupModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title text-2xl font-bold" id="backupModalLabel">Create New Backup Routine</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form method="post">
+                        {% csrf_token %}
                         <div class="form-group">
-                            <select id="instance" class="form-control selectpicker" name="instance_list" title="请选择实例"
-                                data-live-search="true">
-                                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
-                                <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
+                            <label for="backup_type">Backup Type:</label>
+                            <select id="backup_type" class="form-control" required>
+                                <option value="instance">Backup Entire Instance</option>
+                                <option value="database">Backup Specific Database</option>
+                                <option value="table">Backup Specific Table/Collection</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="backup_type">Backup Type:</label>
-                            <select name="backup_type" id="backup_type" class="form-control" required>
-                                <option value="instance">Instance</option>
-                                <option value="database">Database</option>
-                                <option value="table">Table/Collection</option>
+                            <label for="instance">Select Instance:</label>
+                            <select id="instance" class="form-control" name="instance_list" data-live-search="true"
+                                required>
+                                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                                <optgroup id="optgroup-mongo" label="MongoDB"></optgroup>
                             </select>
+                        </div>
+                        <div id="db_container" class="form-group" style="display:none;">
+                            <label for="db_name">Select Database:</label>
+                            <select id="db_name" name="db_name" class="form-control" title="Select Database"></select>
+                        </div>
+                        <div id="table_container" class="form-group" style="display:none;">
+                            <label for="table_name">Select Table:</label>
+                            <select id="table_name" name="table_name" class="form-control"
+                                title="Select Table"></select>
                         </div>
                         <div class="form-group">
                             <label for="interval">Backup Interval:</label>
@@ -96,65 +64,83 @@
                                 <option value="monthly">Monthly</option>
                             </select>
                         </div>
-                
-                        <div class="form-group" id="backup-time-container">
-                            <!-- if the interval is minutely or hourly, hide the time input -->
-                            <label for="time">Backup Time:</label>
-                            <input type="time" name="time" id="time" class="form-control">
+                        <div class="form-group" id="backup-time-container" hidden>
+                            <label for="time">Backup Time: [Hour:Minute ; AM/PM] </label>
+                            <input type="time" name="time" id="time" class="form-control" default="00:00" placeholder="00:00">
+                            
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-default">Confirm</button>
-                        <button type="button" class="btn btn-danger" data-dismiss="modal">Cancel</button>
-                    </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Create New Backup Routine</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        <button class="btn btn-primary mt-3"
-            id="create-backup-routine-btn"
-        >
-            Create New Backup Routine</button>
-    </form>
+    </div>
 
-    <!-- Table showing created automated backup routines -->
-    <section class="mt-5">
-        <h3>Created Backup Routines</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Database Type</th>
-                    <th>Backup Type</th>
-                    <th>Interval</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- AJAX load_backup_routine() will populate this table -->
-            </tbody>
-        </table>
-    </section>
-
-    <!-- Table showing history of automated backups -->
-    <section class="mt-5">
-        <h3>History of Automated Backups</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Database Type</th>
-                    <th>Backup Type</th>
-                    <th>Backup Size</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- AJAX load_backup_history() will populate this table -->
-            </tbody>
-        </table>
-    </section>
 </section>
+
+<!-- Backup History Section -->
+<section class="mt-10">
+    <h3 class="text-2xl font-semibold mb-6">Created Backup Routines</h3>
+
+    <!-- Activated Routines -->
+    <h4 class="text-xl font-semibold mb-4">Activated Routines</h4>
+    <table class="table table-striped table-bordered min-w-full" id="activated-routine-table">
+        <thead class="thead-light">
+            <tr>
+                <th class="px-6 py-3">Database Type</th>
+                <th class="px-6 py-3">Backup Type</th>
+                <th class="px-6 py-3">Interval</th>
+                <th class="px-6 py-3">Time</th>
+                <th class="px-6 py-3">Status</th>
+                <th class="px-6 py-3">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="activated-routine-table-body">
+            <!-- Populated via AJAX -->
+        </tbody>
+    </table>
+
+    <!-- Deactivated Routines -->
+    <h4 class="text-xl font-semibold mb-4 mt-8">Deactivated Routines</h4>
+    <table class="table table-striped table-bordered min-w-full" id="deactivated-routine-table">
+        <thead class="thead-light">
+            <tr>
+                <th class="px-6 py-3">Database Type</th>
+                <th class="px-6 py-3">Backup Type</th>
+                <th class="px-6 py-3">Interval</th>
+                <th class="px-6 py-3">Time</th>
+                <th class="px-6 py-3">Status</th>
+                <th class="px-6 py-3">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="deactivated-routine-table-body">
+            <!-- Populated via AJAX -->
+        </tbody>
+    </table>
+</section>
+
+
+<section class="mt-10">
+    <h3 class="text-2xl font-semibold mb-6">History of Automated Backups</h3>
+    <table class="table table-striped" id="backup-history-table">
+        <thead class="bg-gray-100">
+            <tr>
+                <th>Timestamp</th>
+                <th>Database Type</th>
+                <th>Backup Type</th>
+                <th>Backup Size</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- AJAX load_backup_history() will populate this table -->
+        </tbody>
+    </table>
+</section>
+
 
 {% endblock %}
 
@@ -164,270 +150,6 @@
 <script src="{% static 'bootstrap-table/js/tableExport.min.js' %}"></script>
 <script>
 
-// if the interval is minutely or hourly, hide the time input
-$('#interval').change(function () {
-    let interval = $(this).val();
-    if (interval === 'minutely' || interval === 'hourly') {
-        //not required
-        $('#time').prop('required', false);
-        $('#backup-time-container').hide();
-    } else {
-        //required
-        $('#time').prop('required', true);
-        $('#backup-time-container').show();
-    }
-});
-
-function load_backup_routine(params) {
-    $.ajax({
-        url: "/api/backup/routines/",
-        type: "GET",
-        success: function (data) {
-            // Clear the table content
-            $("#backup-routines-table tbody").empty();
-
-            if (data.length === 0) {
-                $("#backup-routines-table tbody").append(`
-                    <tr><td colspan="6" class="text-center">No backup routines available</td></tr>
-                `);
-            }
-
-            // Populate the table with the received data
-            data.forEach(function (routine) {
-                $("#backup-routines-table tbody").append(`
-                <tr>
-                    <td>${routine.db_type}</td>
-                    <td>${routine.backup_type}</td>
-                    <td>${routine.interval}</td>
-                    <td>${routine.time}</td>
-                    <td>${routine.status}</td>
-                    <td>
-                        <a href="/backup/automated/toggle/${routine.id}" class="btn btn-secondary">
-                            ${routine.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </a>
-                        <a href="/backup/automated/delete/${routine.id}" class="btn btn-danger">Delete</a>
-                    </td>
-                </tr>
-            `);
-            });
-        },
-        error: function (xhr, status, error) {
-            console.error("Error fetching backup routines:", error);
-        }
-    });
-}
-
-function load_backup_history(params) {
-    $.ajax({
-        url: "/api/backup/history/",
-        type: "GET",
-        success: function (data) {
-            // Clear the table content
-            $("#backup-history-table tbody").empty();
-
-            if (data.length === 0) {
-                $("#backup-history-table tbody").append(`
-                    <tr><td colspan="5" class="text-center">No backup history available</td></tr>
-                `);
-            }
-
-            // Populate the table with the received data
-            data.forEach(function (backup) {
-                $("#backup-history-table tbody").append(`
-                <tr>
-                    <td>${backup.timestamp}</td>
-                    <td>${backup.db_type}</td>
-                    <td>${backup.backup_type}</td>
-                    <td>${(backup.size / (1024 * 1024)).toFixed(2)} MB</td>
-                    <td>${backup.status}</td>
-                </tr>
-            `);
-            });
-        },
-        error: function (xhr, status, error) {
-            console.error("Error fetching backup history:", error);
-        }
-    });
-}
-
-function showLoading() {
-    $('#loading-spinner').show();
-}
-
-function hideLoading() {
-    $('#loading-spinner').hide();
-}
-
-// Function to load databases based on the selected instance
-function database_list() {
-    let db_type = "";
-    if ($("#instance").val()) {
-        db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
-    }
-
-    showLoading(); // Show loading spinner
-
-    // AJAX request to retrieve databases
-    $.ajax({
-        type: "post",  // This should be POST to match the backend function
-        url: "/instance/database/list/",
-        data: {
-            instance_id: $("#instance").val(),
-            db_type: db_type
-        },
-        success: function (data) {
-            hideLoading(); // Hide loading spinner
-            console.log(data);  // Log the response to inspect the structure
-
-            // Ensure data contains the expected structure
-            if (data.status === 0 && Array.isArray(data.rows)) {
-                $("#db_name").empty();  // Clear existing options
-                // Iterate over the rows and append database options
-                data.rows.forEach(function (db) {
-                    $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
-                });
-                // Refresh the selectpicker
-                $('#db_name').selectpicker('refresh');
-                // Enable the backup button
-                $('#backup-btn').prop('disabled', false);
-            } else {
-                console.error("Invalid data format or no databases found:", data);
-                alert("No databases found or an error occurred.");
-            }
-        },
-        error: function (XMLHttpRequest, textStatus, errorThrown) {
-            hideLoading(); // Hide loading spinner on error
-            alert("Error loading databases: " + errorThrown);
-        }
-    });
-}
-
-function load_backup_files() {
-    // AJAX request to retrieve backup files
-    $.ajax({
-        type: "GET",  // GET request for retrieving data
-        url: "/backup/files/",  // Adjust this URL based on your API endpoint
-        success: function (data) {
-            console.log(data);  // Log the response to check structure
-            // MySQL Backup Rendering
-            $("#mysql-backup-table tbody").empty();  // Clear the current table content
-            if (Array.isArray(data.MySQL) && data.MySQL.length > 0) {
-                // Sort the backup files by date (newest first)
-                data.MySQL.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                data.MySQL.forEach(function (file) {
-                    $("#mysql-backup-table tbody").append(`
-                            <tr>
-                                <td>${file.name}</td>
-                                <td>${file.backup_type}</td>
-                                <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
-                                <td>${file.created_at}</td>
-                                <td><a href="/backup/download/${file.name}" class="btn btn-success">Download</a></td>
-                            </tr>
-                        `);
-                });
-            } else {
-                $("#mysql-backup-table tbody").append(`
-                        <tr><td colspan="5" class="text-center">No MySQL backup data available</td></tr>
-                    `);
-            }
-
-            // MongoDB Backup Rendering
-            $("#mongo-backup-table tbody").empty();  // Clear the current table content
-            if (Array.isArray(data.MongoDB) && data.MongoDB.length > 0) {
-                data.MongoDB.forEach(function (file) {
-                    $("#mongo-backup-table tbody").append(`
-                            <tr>
-                                <td>${file.name}</td>
-                                <td>${file.backup_type}</td>
-                                <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
-                                <td>${file.created_at}</td>
-                                <td><a href="/backup/download/${file.name}" class="btn btn-success">Download (ZIP)</a></td>
-                            </tr>
-                        `);
-                });
-            } else {
-                $("#mongo-backup-table tbody").append(`
-                        <tr><td colspan="5" class="text-center">No MongoDB backup data available</td></tr>
-                    `);
-            }
-        },
-        error: function (XMLHttpRequest, textStatus, errorThrown) {
-            console.error("Error fetching backup files:", errorThrown);
-            alert("Error loading backup files: " + errorThrown);
-        }
-    });
-}
-
-
-
-
-$('#create-backup-routine-btn').click(function () {
-    $('#backup-routine-modal').modal('show');
-
-});
-
-
-// When the instance is selected, load the corresponding databases
-$("#instance").change(function () {
-    database_list(); // Load databases for selected instance
-});
-
-// Perform backup button click event
-$("#backup-btn").click(function () {
-    // Disable the button to prevent multiple clicks
-    $(this).prop('disabled', true);
-
-    // Validate the selected backup type
-    let backupType = $("#backup_type").val();
-    if (backupType === "database" && !$("#db_name").val()) {
-        alert("Please select a database to backup.");
-        $("#backup-btn").prop('disabled', false);
-        return;
-    } else if (backupType === "table" && !$("#table_name").val()) {
-        alert("Please select a table to backup.");
-        $("#backup-btn").prop('disabled', false);
-        return;
-    }
-
-    // Show loading spinner
-    showLoading();
-    let data = {
-        backup_type: $("#backup_type").val(),
-        instance_id: $("#instance").val(),
-        db_name: $("#db_name").val(),
-        table_name: $("#table_name").val()
-    };
-    console.log("The data:", data);  // Log the data to inspect the structure
-    $.ajax({
-        type: "post",  // Use POST for sending data
-        url: "/backup/manual/",  // URL for the manual backup endpoint
-        data: data,  // Data to send to the endpoint
-        success: function (data) {
-            // Hide loading spinner
-            hideLoading();
-
-            // Enable the button again
-            $("#backup-btn").prop('disabled', false);
-
-            // Check the response from the server
-            if (data.success) {
-                alert("Backup successful!");
-                // Reload the backup files
-                load_backup_files();
-            } else {
-                alert("Backup failed: " + data.message);
-            }
-        },
-        error: function (XMLHttpRequest, textStatus, errorThrown) {
-            // Hide loading spinner and enable the button in case of error
-            hideLoading();
-            $("#backup-btn").prop('disabled', false);
-            alert("Error performing backup: " + errorThrown);
-        }
-    });
-});
-
-$(document).ready(function () {
     // Show/hide relevant inputs based on backup type selection
     $("#backup_type").change(function () {
         let backupType = $(this).val();
@@ -445,29 +167,352 @@ $(document).ready(function () {
         $('#backup-btn').prop('disabled', false);  // Enable the backup button after selection
     });
 
-    // Initialize instance list on page load
-    $.ajax({
-        type: "get",
-        url: "/group/user_all_instances/",
-        dataType: "json",
-        success: function (data) {
-            let instances = data['data'];
-            $("optgroup[id^='optgroup']").empty();
-            const supportDb = ['mysql', 'mongo'];
-            for (let instance of instances) {
-                let instanceOption = `<option value="${instance.id}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
-                if (supportDb.includes(instance.db_type)) {
-                    $("#optgroup-" + instance.db_type).append(instanceOption);
-                }
-            }
-            $('#instance').selectpicker('refresh');
-        },
-        error: function (XMLHttpRequest, textStatus, errorThrown) {
-            alert("Error loading instances: " + errorThrown);
+    // Hide time input if interval is minutely or hourly
+    $('#interval').change(function () {
+        let interval = $(this).val();
+        if (interval === 'minutely' || interval === 'hourly') {
+            $('#time').prop('required', false);
+            $('#backup-time-container').hide();
+        } else {
+            $('#time').prop('required', true);
+            $('#backup-time-container').show();
         }
     });
-    // Load backup files on page load
-    load_backup_files();
-});
+
+    function load_backup_routine() {
+        $.ajax({
+            url: "/api/backup/routines/",
+            type: "GET",
+            success: function (data) {
+                console.log("return of load_backup_routine: ", data);
+                if (data.status === "success") {
+                    var routines = data.data;
+                    
+                    // Clear both tables before populating
+                    $("#activated-routine-table-body").empty();
+                    $("#deactivated-routine-table-body").empty();
+
+                    var activatedCount = 0;
+                    var deactivatedCount = 0;
+
+                    if (routines.length === 0) {
+                        // If no routines at all, populate both with "No data"
+                        $("#activated-routine-table-body").append(`
+                            <tr><td colspan="6" class="text-center">No activated backup routines available</td></tr>
+                        `);
+                        $("#deactivated-routine-table-body").append(`
+                            <tr><td colspan="6" class="text-center">No deactivated backup routines available</td></tr>
+                        `);
+                    } else {
+                        // Iterate and append each routine to the appropriate table
+                        routines.forEach(function (routine) {
+                            var routineRow = `
+                                <tr id="routine-${routine.id}">
+                                    <td>${routine.instance__instance_name}</td>
+                                    <td>${routine.backup_type}</td>
+                                    <td>${routine.interval}</td>
+                                    <td>${routine.time}</td>
+                                    <td>${routine.status}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-secondary" onclick="toggleRoutine(${routine.id}, '${routine.status}')">
+                                            ${routine.status === 'active' ? 'Deactivate' : 'Activate'}
+                                        </a>
+                                        <a href="#" class="btn btn-danger" onclick="deleteRoutine(${routine.id})">Delete</a>
+                                    </td>
+                                </tr>
+                            `;
+
+                            if (routine.status === 'active') {
+                                $("#activated-routine-table-body").append(routineRow);
+                                activatedCount++;
+                            } else {
+                                $("#deactivated-routine-table-body").append(routineRow);
+                                deactivatedCount++;
+                            }
+                        });
+
+                        // If no activated routines, show "No data" for activated table
+                        if (activatedCount === 0) {
+                            $("#activated-routine-table-body").append(`
+                                <tr><td colspan="6" class="text-center">No activated backup routines available</td></tr>
+                            `);
+                        }
+
+                        // If no deactivated routines, show "No data" for deactivated table
+                        if (deactivatedCount === 0) {
+                            $("#deactivated-routine-table-body").append(`
+                                <tr><td colspan="6" class="text-center">No deactivated backup routines available</td></tr>
+                            `);
+                        }
+                    }
+                } else {
+                    console.error("Error loading backup routines:", data.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching backup routines:", error);
+            }
+        });
+    }
+
+
+
+    function load_backup_history(params) {
+        $.ajax({
+            url: "/api/backup/history/",
+            type: "GET",
+            success: function (data) {
+                console.log("return of load_backup_history: ", data);
+                // Clear the table content
+                $("#backup-history-table tbody").empty();
+                var array_of_data = data.data;
+                if (array_of_data.length === 0) {
+                    $("#backup-history-table tbody").append(`
+                    <tr><td colspan="5" class="text-center">No backup history available</td></tr>
+                `);
+                } else {
+                    // Populate the table with the received data
+                    array_of_data.forEach(function (backup) {
+                        $("#backup-history-table tbody").append(`
+                        <tr>
+                            <td>${backup.timestamp}</td>
+                            <td>${backup.db_type}</td>
+                            <td>${backup.backup_type}</td>
+                            <td>${(backup.size / (1024 * 1024)).toFixed(2)} MB</td>
+                            <td>${backup.status}</td>
+                        </tr>
+                        `);
+                    });
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching backup history:", error);
+            }
+        });
+    }
+
+    function toggleRoutine(id, currentStatus) {
+        // Use AJAX to toggle the status of the backup routine
+        $.ajax({
+            url: `/backup/automated/toggle/${id}/`,
+            type: "POST",
+            data: {
+                status: currentStatus === 'active' ? 'inactive' : 'active',
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()  // Django CSRF token
+            },
+            success: function (response) {
+                if (response.status === 'success') {
+                    load_backup_routine();  // Reload the table to reflect changes
+                } else {
+                    alert('Error toggling backup routine status: ' + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                alert('Failed to toggle the backup routine status: ' + error);
+            }
+        });
+    }
+
+    function deleteRoutine(id) {
+        // Use AJAX to delete the backup routine
+        $.ajax({
+            url: `/backup/automated/delete/${id}/`,
+            type: "POST",
+            data: {
+                csrfmiddlewaretoken: $('input[name="csrfmiddlewaretoken"]').val()  // Django CSRF token
+            },
+            success: function (response) {
+                if (response.status === 'success') {
+                    $(`#routine-${id}`).remove();  // Remove the row from the table
+                } else {
+                    alert('Error deleting backup routine: ' + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                alert('Failed to delete the backup routine: ' + error);
+            }
+        });
+    }
+
+
+    function showLoading() {
+        $('#loading-spinner').show();
+    }
+
+    function hideLoading() {
+        $('#loading-spinner').hide();
+    }
+
+    // Function to load databases based on the selected instance
+    function database_list() {
+        let db_type = "";
+        if ($("#instance").val()) {
+            db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+        }
+
+        showLoading(); // Show loading spinner
+
+        // AJAX request to retrieve databases
+        $.ajax({
+            type: "post",  // This should be POST to match the backend function
+            url: "/instance/database/list/",
+            data: {
+                instance_id: $("#instance").val(),
+                db_type: db_type
+            },
+            success: function (data) {
+                hideLoading(); // Hide loading spinner
+                console.log("database list", data);  // Log the response to inspect the structure
+
+                // Ensure data contains the expected structure
+                if (data.status === 0 && Array.isArray(data.rows)) {
+                    $("#db_name").empty();  // Clear existing options
+                    // Iterate over the rows and append database options
+                    data.rows.forEach(function (db) {
+                        $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
+                    });
+                    // Refresh the selectpicker
+                    $('#db_name').selectpicker('refresh');
+                    // Enable the backup button
+                    $('#backup-btn').prop('disabled', false);
+                } else {
+                    console.error("Invalid data format or no databases found:", data);
+                    alert("No databases found or an error occurred.");
+                }
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                hideLoading(); // Hide loading spinner on error
+                alert("Error loading databases: " + errorThrown);
+            }
+        });
+    }
+
+    // When the instance is selected, load the corresponding databases
+    $("#instance").change(function () {
+        database_list(); // Load databases for selected instance
+    });
+
+    // Perform backup button click event
+    $("#backup-btn").click(function () {
+        // Disable the button to prevent multiple clicks
+        $(this).prop('disabled', true);
+
+        // Validate the selected backup type
+        let backupType = $("#backup_type").val();
+        if (backupType === "database" && !$("#db_name").val()) {
+            alert("Please select a database to backup.");
+            $("#backup-btn").prop('disabled', false);
+            return;
+        } else if (backupType === "table" && !$("#table_name").val()) {
+            alert("Please select a table to backup.");
+            $("#backup-btn").prop('disabled', false);
+            return;
+        }
+
+        // Show loading spinner
+        showLoading();
+        let data = {
+            backup_type: $("#backup_type").val(),
+            instance_id: $("#instance").val(),
+            db_name: $("#db_name").val(),
+            table_name: $("#table_name").val()
+        };
+        console.log("The data:", data);  // Log the data to inspect the structure
+        $.ajax({
+            type: "post",  // Use POST for sending data
+            url: "/backup/manual/",  // URL for the manual backup endpoint
+            data: data,  // Data to send to the endpoint
+            success: function (data) {
+                // Hide loading spinner
+                hideLoading();
+
+                // Enable the button again
+                $("#backup-btn").prop('disabled', false);
+
+                // Check the response from the server
+                if (data.success) {
+                    alert("Backup successful!");
+                    // Reload the backup files
+                    load_backup_files();
+                } else {
+                    alert("Backup failed: " + data.message);
+                }
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                // Hide loading spinner and enable the button in case of error
+                hideLoading();
+                $("#backup-btn").prop('disabled', false);
+                alert("Error performing backup: " + errorThrown);
+            }
+        });
+    });
+
+    function create_backup_routine() {
+        // Handle form submission for creating a new backup routine
+        $('#backupModal form').on('submit', function (e) {
+            e.preventDefault(); // Prevent the default form submission
+
+            // Gather form data
+            var formData = {
+                instance_id: $('#instance').val(),
+                backup_type: $('#backup_type').val(),
+                db_name: $('#db_name').val(),
+                table_name: $('#table_name').val(),
+                interval: $('#interval').val(),
+                time: $('#time').val(),
+                csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()  // Django CSRF token
+            };
+            console.log("Form data:", formData);  // Log the form data to inspect the structure
+            // Send AJAX POST request to create a new backup routine
+            $.ajax({
+                type: 'POST',
+                url: '/backup/automated/create/',  // Django view to handle routine creation
+                data: formData,
+                success: function (response) {
+                    if (response.status === "success") {
+                        // Hide the modal after success
+                        $('#backupModal').modal('hide');
+                        // Reload the backup routines
+                        load_backup_routine();
+                        alert('Backup routine created successfully');
+                    } else {
+                        alert('Error: Could not create backup routine');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error creating backup routine:", error);
+                    alert('An error occurred while creating the backup routine', error);
+                }
+            });
+        });
+    }
+    $(document).ready(function () {
+        //On page load
+        load_backup_history();
+        load_backup_routine();
+        create_backup_routine();
+        // Initialize instance list
+        $.ajax({
+            type: "get",
+            url: "/group/user_all_instances/",
+            dataType: "json",
+            success: function (data) {
+                let instances = data['data'];
+                $("optgroup[id^='optgroup']").empty();
+                const supportDb = ['mysql', 'mongo'];
+                for (let instance of instances) {
+                    let instanceOption = `<option value="${instance.id}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
+                    if (supportDb.includes(instance.db_type)) {
+                        $("#optgroup-" + instance.db_type).append(instanceOption);
+                    }
+                }
+                $('#instance').selectpicker('refresh');
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                alert("Error loading instances: " + errorThrown);
+            }
+        });
+        
+    });
 </script>
 {% endblock %}

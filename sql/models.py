@@ -774,6 +774,48 @@ class BackupHistory(models.Model):
         return f"{self.db_type} - {self.backup_type} - {self.created_at}"
 
 
+class BackupRoutine(models.Model):
+    """Model to store the automated backup routines."""
+    """Fields Explanation:
+        instance: A ForeignKey linking to the Instance model, which represents the selected database instance (e.g., MySQL, MongoDB).
+        db_name & table_name: These fields store the database and table names for specific database/table backups.
+        backup_type: Defines the backup type (instance, database, or table).
+        interval: Defines how often the backup should run (e.g., daily, weekly, etc.).
+        time: Stores the backup time for daily, weekly, or monthly backups.
+        status: Indicates whether the routine is active or inactive.
+        created_at: Automatically stores the creation time of the routine.
+    """
+    BACKUP_TYPE_CHOICES = [
+        ('instance', 'Backup Entire Instance'),
+        ('database', 'Backup Specific Database'),
+        ('table', 'Backup Specific Table/Collection'),
+    ]
+    
+    INTERVAL_CHOICES = [
+        ('minutely', 'Minutely'),
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+    
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE, verbose_name="实例")
+    db_name = models.CharField("数据库名称", max_length=255, blank=True, null=True)
+    table_name = models.CharField("表名称", max_length=255, blank=True, null=True)
+    backup_type = models.CharField("备份类型", max_length=50, choices=BACKUP_TYPE_CHOICES)
+    interval = models.CharField("备份间隔", max_length=50, choices=INTERVAL_CHOICES)
+    time = models.TimeField("备份时间", blank=True, null=True)  # Time to run the backup
+    status = models.CharField("状态", max_length=20, default='active')  # active or inactive
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+
+    class Meta:
+        db_table = "backup_routine"
+        verbose_name = "备份计划"
+        verbose_name_plural = "备份计划"
+
+    def __str__(self):
+        return f"{self.instance} - {self.backup_type} - {self.interval}"
+
 class ArchiveConfig(models.Model, WorkflowAuditMixin):
     """
     归档配置表

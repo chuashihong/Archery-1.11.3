@@ -33,12 +33,19 @@ for ($i = 1; $i -le 5; $i++) {
     Start-Sleep -Seconds 1
 }
 
-# Write-Host "SCRIPT LOG: Port forwarding..."
-# # Port forward the MySQL service and MongoDB service to localhost
-# Start-Process kubectl -ArgumentList "port-forward deployment/mysql 3307:3306"
-# Start-Process kubectl -ArgumentList "port-forward deployment/mongodb 27018:27017"
-# kubectl port-forward pod/$(kubectl get pods -l app=mysql -o jsonpath='{.items[0].metadata.name}') 3307:3307
-# kubectl port-forward pod/$(kubectl get pods -l app=mongodb -o jsonpath='{.items[0].metadata.name}') 27017:27017
+
+Write-Host "SRRIPT LOG: Port forwarding in 3 seconds..."
+# Print the countdown message for port forwarding
+for ($i = 1; $i -le 3; $i++) {
+    Write-Host "SCRIPT LOG: Port forwarding in $(4 - $i) seconds..."
+    Start-Sleep -Seconds 1
+}
+
+Write-Host "SCRIPT LOG: Port forwarding from 3307 to 3306 and 27018 to 27017..."
+# Port forward the MySQL service and MongoDB service to localhost
+Start-Process kubectl -ArgumentList "port-forward deployment/mysql 3307:3306"
+Start-Process kubectl -ArgumentList "port-forward deployment/mongodb 27018:27017"
+
 
 # Connect to the MySQL database and MongoDB database
 ### Original command in bash

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block content %}
 {% load static %}
 <link href="{% static 'css/tailwind.min.css' %}" rel="stylesheet">
+{% block content %}
 <!-- Backup Options Selection -->
-<h2 class="text-2xl font-semibold mb-4">Manual Backup</h2>
+<h2 class="text-3xl font-bold mb-6">Manual Backup</h2>
 
-<section class="mt-8 p-6 bg-white shadow-lg rounded-lg">
-    <div class="form-group mb-5">
-        <label for="backup_type" class="block text-sm font-medium text-gray-700">Backup Type:</label>
+<section class="mt-10 p-6 bg-white shadow-lg rounded-lg">
+    <div class="form-group mb-6">
+        <label for="backup_type" class="block text-lg font-semibold text-gray-800">Backup Type:</label>
         <select id="backup_type" class="form-control block w-full mt-1 rounded-md border-gray-300 shadow-sm">
             <option value="instance" selected>Backup Entire Instance</option>
             <option value="database">Backup Specific Database</option>
@@ -17,10 +17,10 @@
     </div>
 
     <div>
-        <div id="toolbar" class="form-inline flex items-center space-x-4">
+        <div id="toolbar" class="form-inline flex items-center space-x-6">
             <!-- Select Instance -->
             <div class="form-group">
-                <label for="instance" class="block text-sm font-medium text-gray-700">Select Instance:</label>
+                <label for="instance" class="block text-lg font-semibold text-gray-800">Select Instance:</label>
                 <select id="instance" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm"
                     name="instance_list" title="请选择实例" data-live-search="true">
                     <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
@@ -30,13 +30,13 @@
 
             <!-- Select Database (hidden by default) -->
             <div id="db_container" class="form-group" style="display: none;">
-                <label for="db_name" class="block text-sm font-medium text-gray-700">Select Database</label>
+                <label for="db_name" class="block text-lg font-semibold text-gray-800">Select Database</label>
                 <select id="db_name" name="db_name" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm" title="Select Database"></select>
             </div>
 
             <!-- Select Table (hidden by default) -->
             <div id="table_container" class="form-group" style="display: none;">
-                <label for="table_name" class="block text-sm font-medium text-gray-700">Select Table</label>
+                <label for="table_name" class="block text-lg font-semibold text-gray-800">Select Table</label>
                 <select id="table_name" name="table_name" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm" title="Select Table"></select>
             </div>
 
@@ -47,11 +47,11 @@
 </section>
 
 <!-- Backup History and Downloads Section -->
-<h2 class="text-2xl font-semibold mt-10 mb-4">Backup Files</h2>
+<h2 class="text-3xl font-bold mt-10 mb-6">Backup Files</h2>
 
 <section class="mt-5 p-6 bg-white shadow-lg rounded-lg">
     <!-- MySQL Backups -->
-    <h3 class="text-xl font-semibold mb-4">MySQL Backups</h3>
+    <h3 class="text-2xl font-semibold mb-4">MySQL Backups</h3>
     <table class="table table-striped w-full" id="mysql-backup-table">
         <thead class="bg-gray-100">
             <tr>
@@ -68,7 +68,7 @@
     </table>
 
     <!-- MongoDB Backups -->
-    <h3 class="text-xl font-semibold mt-8 mb-4">MongoDB Backups</h3>
+    <h3 class="text-2xl font-semibold mt-8 mb-4">MongoDB Backups</h3>
     <table class="table table-striped w-full" id="mongo-backup-table">
         <thead class="bg-gray-100">
             <tr>
@@ -84,6 +84,7 @@
         </tbody>
     </table>
 </section>
+
 
 
 {% endblock %}

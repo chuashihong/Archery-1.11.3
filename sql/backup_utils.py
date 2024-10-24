@@ -5,8 +5,9 @@ from datetime import datetime
 
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
-from sql.models import BackupHistory, Instance
+from sql.models import BackupHistory, BackupRoutine, Instance
 from sql.utils.resource_group import user_instances
 
 BACKUP_DIR = '/opt/archery/backup'
@@ -254,10 +255,107 @@ def download_backup_file(file_name):
     """Return the full path to the backup file."""
     return os.path.join(BACKUP_DIR, file_name)
 
-def get_backup_routines():
-    pass
+def create_backup_routine(request):
+    """Handles the AJAX request to create a new backup routine."""
+    if request.method == "POST":
+        # Get data from AJAX POST request
+        instance_id = request.POST.get("instance_id")
+        backup_type = request.POST.get("backup_type")
+        db_name = request.POST.get("db_name", None)
+        table_name = request.POST.get("table_name", None)
+        interval = request.POST.get("interval")
+        time = request.POST.get("time")
 
-def get_backup_history(request):
+        # If time is "", set it to None
+        if time == "":
+            time = None
+
+        # Fetch the instance
+        instance = Instance.objects.get(id=instance_id)
+        
+        # Create new BackupRoutine
+        routine = BackupRoutine.objects.create(
+            instance=instance,
+            backup_type=backup_type,
+            db_name=db_name,
+            table_name=table_name,
+            interval=interval,
+            time=time,
+            created_at=datetime.now()
+        )
+
+        # Return the created routine as a JSON response
+        return JsonResponse({
+            "status": "success",
+            "routine": {
+                "db_type": instance.db_type,
+                "backup_type": routine.backup_type,
+                "interval": routine.interval,
+                "time": routine.time,
+                "status": routine.status
+            }
+        })
+    return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
+
+@require_POST  # Ensures that only POST requests are allowed
+def delete_backup_routine(request, id):
+    """Deletes the backup routine with the given ID."""
+    try:
+        # Try to find the backup routine by its ID and delete it
+        routine = BackupRoutine.objects.get(id=id)
+        routine.delete()
+        return JsonResponse({'status': 'success', 'message': 'Backup routine deleted successfully.'})
+    except BackupRoutine.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Backup routine not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST # Ensures that only POST requests are allowed
+def toggle_backup_routine(request, id):
+    """Toggles the status of the backup routine (active/inactive)."""
+    try:
+        # Try to find the backup routine by its ID
+        routine = BackupRoutine.objects.get(id=id)
+        
+        # Toggle the status
+        if routine.status == 'active':
+            routine.status = 'inactive'
+        else:
+            routine.status = 'active'
+        
+        routine.save()  # Save the updated status to the database
+        
+        return JsonResponse({'status': 'success', 'message': f'Backup routine {routine.status} successfully.'})
+    
+    except BackupRoutine.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Backup routine not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+def api_backup_routines(request):
+    """Fetches the backup routines and returns them as JSON."""
+    
+    routines = BackupRoutine.objects.all().values(
+        'id',            # Unique ID of the routine
+        'instance__instance_name',  # Name of the instance
+        'db_name',        # Database name (if applicable)
+        'table_name',     # Table name (if applicable)
+        'backup_type',    # Type of backup (instance, database, table)
+        'interval',       # Backup interval (e.g., daily, weekly)
+        'time',           # Time when the backup is scheduled
+        'status'          # Status of the backup routine (active/inactive)
+    )
+
+    # Serializing the QuerySet to a list of dictionaries
+    result = {
+        "status": "success",
+        "data": list(routines)
+    }
+
+    return JsonResponse(result)
+
+def api_backup_history(request):
     """Fetches the backup history for the instance."""
     limit = int(request.POST.get("limit", 10))
     offset = int(request.POST.get("offset", 0))
