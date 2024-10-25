@@ -430,36 +430,92 @@
     
     function table_list() {
         let db_type = "";
-        let db_namr = "";
-        if ($("#instance").val()) {
-            db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
-            db_name = $("#db_name").val();
-        }
+        let db_name = "";
+        // Get the selected option element
+        let selectedOption = $("#instance").find(":selected");
 
-        showLoading(); // Show loading spinner
+        // Retrieve the 'instance-name' attribute value
+        let instance_name = selectedOption.attr("instance-name");
+        // let instance_name = $("#instance").val();
+
+        if (instance_name) {
+            // Retrieve 'instance-type' attribute for selected instance
+            db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+            db_name = $("#db_name").val();  // Ensure this is populated based on selected DB
+        }
+        
+        let data = {
+            instance_name: instance_name,
+            db_name: db_name,
+            db_type: db_type
+        };
+        console.log("Data for table list:", data);  // Log the data to inspect the structure
+
+        // Show loading spinner
+        showLoading();
 
         // AJAX request to retrieve tables
         $.ajax({
             type: "get",
             url: "/data_dictionary/table_list/",
             dataType: "json",
-            data: {
-                instance_name: instance_name,
-                db_name: db_name,
-                db_type: inst_db_type
-            },
-            success: function (data) {
-                console.log("table list", data);  // Log the response to inspect the structure
+            data: data,
+            // success: function (data) {
+            //     hideLoading();  // Hide loading spinner on success
 
-                // Ensure data contains the expected structure
-                if (data.status === 0 && Array.isArray(data.rows)) {
+            //     console.log("Table list:", data);  // Log for debugging purposes
+
+            //     // Check if the data has expected status and structure
+            //     if (data.status === 0 && Array.isArray(data.data)) {
+            //         $("#table_name").empty();  // Clear existing options
+                    
+            //         // Iterate over data and add options to the select
+            //         data.data.forEach(function (table) {
+            //             $("#table_name").append(`<option value="${table.table_name}">${table.table_name}</option>`);
+            //         });
+
+            //         // Refresh the select picker for UI updates
+            //         $('#table_name').selectpicker('refresh');
+                    
+            //         // Enable the backup button
+            //         $('#backup-btn').prop('disabled', false);
+            //     } else {
+            //         console.error("Invalid data format or no tables found:", data);
+            //         alert("No tables found or an error occurred.");
+            //     }
+            // },
+            success: function (data) {
+                hideLoading();  // Hide loading spinner on success
+
+                console.log("Table list:", data);  // Log for debugging purposes
+
+                // Check if the data has expected status and structure
+                if (data.status === 0 && typeof data.data === "object") {
                     $("#table_name").empty();  // Clear existing options
-                    // Iterate over the rows and append table options
-                    data.rows.forEach(function (table) {
-                        $("#table_name").append(`<option value="${table.table_name}">${table.table_name}</option>`);
+
+                    // Iterate over each category in the data object
+                    Object.keys(data.data).forEach(function (categoryKey) {
+                        const tables = data.data[categoryKey];
+
+                        // Check if tables is an array to proceed
+                        if (Array.isArray(tables)) {
+                            // Create an <optgroup> using the category key as the label
+                            const optgroup = $('<optgroup>').attr("label", categoryKey);
+
+                            // Add each table as an option within the optgroup
+                            tables.forEach(function (table) {
+                                const tableName = table[0];  // Extract table name from the array
+                                optgroup.append(`<option value="${tableName}">${tableName}</option>`);
+                            });
+
+                            // Append the <optgroup> to the select element
+                            $("#table_name").append(optgroup);
+                        }
                     });
-                    // Refresh the selectpicker
+
+                    // Refresh the select picker for UI updates
                     $('#table_name').selectpicker('refresh');
+
                     // Enable the backup button
                     $('#backup-btn').prop('disabled', false);
                 } else {
@@ -468,11 +524,12 @@
                 }
             },
             error: function (XMLHttpRequest, textStatus, errorThrown) {
-                hideLoading(); // Hide loading spinner on error
+                hideLoading();  // Hide loading spinner on error
                 alert("Error loading tables: " + errorThrown);
             }
         });
     }
+
 
     // When the instance is selected, load the corresponding databases
     $("#instance").change(function () {
@@ -603,7 +660,7 @@
                 $("optgroup[id^='optgroup']").empty();
                 const supportDb = ['mysql', 'mongo'];
                 for (let instance of instances) {
-                    let instanceOption = `<option value="${instance.id}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
+                    let instanceOption = `<option value="${instance.id}" instance-name="${instance.instance_name}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
                     if (supportDb.includes(instance.db_type)) {
                         $("#optgroup-" + instance.db_type).append(instanceOption);
                     }
