@@ -291,7 +291,7 @@ def delete_backup_routine(request, id):
         routine.delete()
 
         # Delete the cron job associated with the routine
-        delete_cron_job(routine)
+        delete_cron_job(id)
 
         return JsonResponse({'status': 'success', 'message': 'Backup routine deleted successfully.'})
     except BackupRoutine.DoesNotExist:

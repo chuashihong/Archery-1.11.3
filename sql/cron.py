@@ -27,14 +27,14 @@ def create_cron_job(command, schedule_time, comment):
     job.setall(schedule_time)
     cron.write()
 
-def delete_cron_job(routine):
+def delete_cron_job(id):
     """
     Deletes the cron job associated with the given backup routine.
     """
     cron = CronTab(user=True)
     # Assuming the cron command is identifiable by routine ID in some way (included in the command)
     for job in cron:
-        if job.comment == str(routine.id):  # Matching the routine ID stored in the comment
+        if int(job.comment) == id:
             cron.remove(job)
             cron.write()
             return True

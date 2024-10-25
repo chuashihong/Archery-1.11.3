@@ -501,8 +501,7 @@
                 time: $('#time').val(),
                 csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()  // Django CSRF token
             };
-            console.log("Form data:", formData);  // Log the form data to inspect the structure
-            // Send AJAX POST request to create a new backup routine
+            console.log("Form data:", formData); 
             $.ajax({
                 type: 'POST',
                 url: '/backup/automated/create/',  // Django view to handle routine creation
@@ -525,9 +524,9 @@
             });
         });
     }
-    $(document).ready(function () {
-        //On page load
 
+    // When page is loaded
+    $(document).ready(function () {
         listen_create_backup_routine();
         // Initialize instance list
         $.ajax({
