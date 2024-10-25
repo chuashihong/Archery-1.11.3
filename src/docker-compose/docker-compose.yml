@@ -69,6 +69,6 @@ services:
       - "../../sql:/opt/archery/sql"
       - "../../sql_api:/opt/archery/sql_api"
       - "./backup:/opt/archery/backup"
-    entrypoint: "bash /opt/archery/src/docker/startup.sh"
+    entrypoint: bash -c "service cron start && bash /opt/archery/src/docker/startup.sh"
     env_file:
       - .env

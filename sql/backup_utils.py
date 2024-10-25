@@ -4,55 +4,26 @@ import subprocess
 from datetime import datetime
 
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from sql.cron import create_backup_cron_job, delete_cron_job, toggle_cron_job
 from sql.models import BackupHistory, BackupRoutine, Instance
 from sql.utils.resource_group import user_instances
 
-BACKUP_DIR = '/opt/archery/backup'
-BACKUP_DIR_MYSQL = '/opt/archery/backup/mysql'
-BACKUP_DIR_MONGO = '/opt/archery/backup/mongo'
-BACKUP_DIR_AUTOMATED_HISTORY = '/opt/archery/backup/automated_history'
+BACKUP_DIR_MANUAL = '/opt/archery/backup/manual'
+BACKUP_DIR_MANUAL_MYSQL = '/opt/archery/backup/manual/mysql'
+BACKUP_DIR_MANUAL_MONGO = '/opt/archery/backup/manual/mongo'
+BACKUP_DIR_AUTO = '/opt/archery/backup/auto'
+BACKUP_DIR_AUTO_MYSQL = '/opt/archery/backup/auto/mysql'
+BACKUP_DIR_AUTO_MONGO = '/opt/archery/backup/auto/mongo'
 
 # Create the backup directories if they don't exist
-os.makedirs(BACKUP_DIR, exist_ok=True)
-os.makedirs(BACKUP_DIR_MYSQL, exist_ok=True)
-os.makedirs(BACKUP_DIR_MONGO, exist_ok=True)
-os.makedirs(BACKUP_DIR_AUTOMATED_HISTORY, exist_ok=True)
-
-# BACKUP_SETTINGS_FILE = '/opt/archery/backup/backup_settings.json'
-# BACKUP_SETTINGS = {
-#     # Default backup settings
-#     'backup_frequency': 'daily',
-#     'backup_time': '00:00',
-#     'backup_destination': BACKUP_DIR
-# }
-
-# Create a default backup settings file if it doesn't exist
-# if not os.path.exists(BACKUP_SETTINGS_FILE):
-#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
-#         f.write('{"backup_frequency": "daily", "backup_time": "00:00", "backup_destination": "/opt/archery/backup"}')
-
-
-# def backup_settings(request):
-#     """View for saving backup settings."""
-#     if request.method == 'POST':
-#         frequency = request.POST.get('frequency')
-#         time = request.POST.get('time')
-#         destination = request.POST.get('destination')
-
-#         # Store the settings (you may want to persist these settings in a file or DB)
-#         BACKUP_SETTINGS['frequency'] = frequency
-#         BACKUP_SETTINGS['time'] = time
-#         BACKUP_SETTINGS['destination'] = destination
-
-#         # Optionally, save the settings to a config file or database
-#         save_backup_settings(BACKUP_SETTINGS)
-
-#         return redirect('backup_dashboard')  # Redirect back to the dashboard
-
-#     return render(request, 'backup/backup_settings.html')
+os.makedirs(BACKUP_DIR_MANUAL, exist_ok=True)
+os.makedirs(BACKUP_DIR_MANUAL_MYSQL, exist_ok=True)
+os.makedirs(BACKUP_DIR_MANUAL_MONGO, exist_ok=True)
+os.makedirs(BACKUP_DIR_AUTO, exist_ok=True)
+os.makedirs(BACKUP_DIR_AUTO_MYSQL, exist_ok=True)
+os.makedirs(BACKUP_DIR_AUTO_MONGO, exist_ok=True)
 
 def perform_manual_backup(request):
     """Trigger a manual backup of the selected database or table."""
@@ -76,8 +47,17 @@ def list_manual_backup_files(request):
     """Handle GET requests and return a list of backup files for MySQL and MongoDB."""
     if request.method == 'GET':
         backup_files = {
-            'MySQL': list_backup_files(BACKUP_DIR_MYSQL, is_file=True, file_extension='.sql'),
-            'MongoDB': list_backup_files(BACKUP_DIR_MONGO, is_file=False)
+            'MySQL': list_backup_files(BACKUP_DIR_MANUAL_MYSQL, is_file=True, file_extension='.sql'),
+            'MongoDB': list_backup_files(BACKUP_DIR_MANUAL_MONGO, is_file=False)
+        }
+        return JsonResponse(backup_files, safe=False)
+
+def list_auto_backup_files(request):
+    """Handle GET requests and return a list of backup files for MySQL and MongoDB."""
+    if request.method == 'GET':
+        backup_files = {
+            'MySQL': list_backup_files(BACKUP_DIR_AUTO_MYSQL, is_file=True, file_extension='.sql'),
+            'MongoDB': list_backup_files(BACKUP_DIR_AUTO_MONGO, is_file=False)
         }
         return JsonResponse(backup_files, safe=False)
 
@@ -113,13 +93,19 @@ def generate_backup_metadata(name, path, is_file):
     
     return metadata
 
-def download_backup(request, file_name):
+def download_backup(request, file_name, is_auto=False):
     """Download the selected backup file (MySQL .sql or MongoDB folder as .zip)."""
-    
+    # Choose the correct directory based on whether the backup is automatic or manual
+    if is_auto:
+        mysql_backup_dir = BACKUP_DIR_AUTO_MYSQL
+        mongo_backup_dir = BACKUP_DIR_AUTO_MONGO
+    else:
+        mysql_backup_dir = BACKUP_DIR_MANUAL_MYSQL
+        mongo_backup_dir = BACKUP_DIR_MANUAL_MONGO
     # Determine if it's MySQL or MongoDB based on the file name
     if file_name.endswith('.sql'):
         # MySQL backup (.sql)
-        file_path = os.path.join(BACKUP_DIR_MYSQL, file_name)
+        file_path = os.path.join(mysql_backup_dir, file_name)
         if os.path.exists(file_path):
             with open(file_path, 'rb') as f:
                 response = HttpResponse(f.read(), content_type='application/octet-stream')
@@ -130,7 +116,7 @@ def download_backup(request, file_name):
     
     else:
         # MongoDB backup (directory to be zipped)
-        dir_path = os.path.join(BACKUP_DIR_MONGO, file_name)
+        dir_path = os.path.join(mongo_backup_dir, file_name)
         if os.path.exists(dir_path):
             # Compress the directory into a .zip file
             zip_path = f"{dir_path}.zip"
@@ -143,12 +129,6 @@ def download_backup(request, file_name):
         else:
             raise Http404(f"Directory {file_name} not found")
 
-
-# def save_backup_settings(settings):
-#     """Save backup settings to a file."""
-#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
-#         f.write(str(settings))
-
 def perform_backup(instance, backup_type, db_name, table_name=None):
     """Perform a manual backup of the specified database or table."""
     db_type = instance.db_type
@@ -159,12 +139,12 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
     # backup_file_name = f"{db_type}_{backup_type}_{db_name + '_' if db_name else ''}_{timestamp}"
     backup_file_name = f"{db_type}.{backup_type}.{instance.instance_name}.{db_name + '.' if db_name else ''}{table_name + '.' if table_name else ''}{timestamp}"
     # Ensure the backup directory exists
-    os.makedirs(BACKUP_DIR, exist_ok=True)
+    os.makedirs(BACKUP_DIR_MANUAL, exist_ok=True)
 
     try:
         # Backup command for MySQL
         if db_type == 'mysql':
-            backup_file_output = os.path.join(BACKUP_DIR_MYSQL, backup_file_name) + '.sql' 
+            backup_file_output = os.path.join(BACKUP_DIR_MANUAL_MYSQL, backup_file_name) + '.sql' 
             command = ["mysqldump",  
                        "-h", instance.host,
                        "-P", str(instance.port),
@@ -188,7 +168,7 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
             
         # Backup command for MongoDB
         elif db_type == 'mongo':
-            backup_file_output = os.path.join(BACKUP_DIR_MONGO, backup_file_name)
+            backup_file_output = os.path.join(BACKUP_DIR_MANUAL_MONGO, backup_file_name)
             command = [
                 "mongodump", 
                 "--host", instance.host,
@@ -231,7 +211,7 @@ def perform_backup(instance, backup_type, db_name, table_name=None):
 def extract_db_name(name):
     """Extract the database name from the file or directory name."""
     parts = name.split('.')
-    if len(parts) > 3:
+    if len(parts) == 6:
         return parts[3]  # The db_name should be the 4th part (0-indexed)
     return "Unknown"
 
@@ -253,7 +233,7 @@ def calculate_directory_size(directory):
 
 def download_backup_file(file_name):
     """Return the full path to the backup file."""
-    return os.path.join(BACKUP_DIR, file_name)
+    return os.path.join(BACKUP_DIR_MANUAL, file_name)
 
 def create_backup_routine(request):
     """Handles the AJAX request to create a new backup routine."""
@@ -283,6 +263,10 @@ def create_backup_routine(request):
             time=time,
             created_at=datetime.now()
         )
+        
+        # Try to create a cron job for the backup routine
+        # test_create_simple_cron_job()
+        create_backup_cron_job(routine)
 
         # Return the created routine as a JSON response
         return JsonResponse({
@@ -295,6 +279,7 @@ def create_backup_routine(request):
                 "status": routine.status
             }
         })
+
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
 @require_POST  # Ensures that only POST requests are allowed
@@ -304,6 +289,10 @@ def delete_backup_routine(request, id):
         # Try to find the backup routine by its ID and delete it
         routine = BackupRoutine.objects.get(id=id)
         routine.delete()
+
+        # Delete the cron job associated with the routine
+        delete_cron_job(routine)
+
         return JsonResponse({'status': 'success', 'message': 'Backup routine deleted successfully.'})
     except BackupRoutine.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Backup routine not found.'}, status=404)
@@ -324,13 +313,15 @@ def toggle_backup_routine(request, id):
             routine.status = 'active'
         
         routine.save()  # Save the updated status to the database
-        
+        # Toggle the cron job status
+        toggle_cron_job(routine)
+
         return JsonResponse({'status': 'success', 'message': f'Backup routine {routine.status} successfully.'})
     
     except BackupRoutine.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Backup routine not found.'}, status=404)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': "from toggle_backup_routine: " + str(e)}, status=500)
 
 
 def api_backup_routines(request):
@@ -381,3 +372,42 @@ def api_backup_history(request):
     }
     
     return JsonResponse(result)
+
+### Unused functions ###
+# BACKUP_SETTINGS_FILE = '/opt/archery/backup/backup_settings.json'
+# BACKUP_SETTINGS = {
+#     # Default backup settings
+#     'backup_frequency': 'daily',
+#     'backup_time': '00:00',
+#     'backup_destination': BACKUP_DIR
+# }
+
+# Create a default backup settings file if it doesn't exist
+# if not os.path.exists(BACKUP_SETTINGS_FILE):
+#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
+#         f.write('{"backup_frequency": "daily", "backup_time": "00:00", "backup_destination": "/opt/archery/backup"}')
+
+
+# def backup_settings(request):
+#     """View for saving backup settings."""
+#     if request.method == 'POST':
+#         frequency = request.POST.get('frequency')
+#         time = request.POST.get('time')
+#         destination = request.POST.get('destination')
+
+#         # Store the settings (you may want to persist these settings in a file or DB)
+#         BACKUP_SETTINGS['frequency'] = frequency
+#         BACKUP_SETTINGS['time'] = time
+#         BACKUP_SETTINGS['destination'] = destination
+
+#         # Optionally, save the settings to a config file or database
+#         save_backup_settings(BACKUP_SETTINGS)
+
+#         return redirect('backup_dashboard')  # Redirect back to the dashboard
+
+#     return render(request, 'backup/backup_settings.html')
+
+# def save_backup_settings(settings):
+#     """Save backup settings to a file."""
+#     with open(BACKUP_SETTINGS_FILE, 'w') as f:
+#         f.write(str(settings))

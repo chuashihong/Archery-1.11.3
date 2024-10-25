@@ -122,21 +122,39 @@
     </table>
 </section>
 
-
 <section class="mt-10">
     <h3 class="text-2xl font-semibold mb-6">History of Automated Backups</h3>
-    <table class="table table-striped" id="backup-history-table">
+    <!-- MySQL Backups -->
+    <h3 class="text-2xl font-semibold mb-4">MySQL Backups</h3>
+    <table class="table table-striped w-full" id="mysql-auto-backup-table">
         <thead class="bg-gray-100">
             <tr>
-                <th>Timestamp</th>
-                <th>Database Type</th>
-                <th>Backup Type</th>
-                <th>Backup Size</th>
-                <th>Status</th>
+                <th class="px-4 py-2">File Name</th>
+                <th class="px-4 py-2">Backup Type</th>
+                <th class="px-4 py-2">Size</th>
+                <th class="px-4 py-2">Date Created</th>
+                <th class="px-4 py-2">Actions</th>
             </tr>
         </thead>
         <tbody>
-            <!-- AJAX load_backup_history() will populate this table -->
+
+        </tbody>
+    </table>
+
+    <!-- MongoDB Backups -->
+    <h3 class="text-2xl font-semibold mt-8 mb-4">MongoDB Backups</h3>
+    <table class="table table-striped w-full" id="mongo-auto-backup-table">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="px-4 py-2">Folder Name</th>
+                <th class="px-4 py-2">Backup Type</th>
+                <th class="px-4 py-2">Size</th>
+                <th class="px-4 py-2">Date Created</th>
+                <th class="px-4 py-2">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+
         </tbody>
     </table>
 </section>
@@ -187,7 +205,7 @@
                 console.log("return of load_backup_routine: ", data);
                 if (data.status === "success") {
                     var routines = data.data;
-                    
+
                     // Clear both tables before populating
                     $("#activated-routine-table-body").empty();
                     $("#deactivated-routine-table-body").empty();
@@ -195,55 +213,50 @@
                     var activatedCount = 0;
                     var deactivatedCount = 0;
 
-                    if (routines.length === 0) {
-                        // If no routines at all, populate both with "No data"
-                        $("#activated-routine-table-body").append(`
-                            <tr><td colspan="6" class="text-center">No activated backup routines available</td></tr>
+                    // Helper function to append a row to the table
+                    function appendRoutineRow(routine, tableBody, showDelete) {
+                        var routineRow = `
+                            <tr id="routine-${routine.id}">
+                                <td>${routine.instance__instance_name}</td>
+                                <td>${routine.backup_type}</td>
+                                <td>${routine.interval}</td>
+                                <td>${routine.time}</td>
+                                <td>${routine.status}</td>
+                                <td>
+                                    <a href="#" class="btn btn-secondary" onclick="toggleRoutine(${routine.id}, '${routine.status}')">
+                                        ${routine.status === 'active' ? 'Deactivate' : 'Activate'}
+                                    </a>
+                                    ${showDelete ? `<a href="#" class="btn btn-danger" onclick="deleteRoutine(${routine.id})">Delete</a>` : ''}
+                                </td>
+                            </tr>
+                        `;
+                        $(tableBody).append(routineRow);
+                    }
+
+                    // Helper function to display "No data" if table is empty
+                    function appendNoDataRow(tableBody, message) {
+                        $(tableBody).append(`
+                            <tr><td colspan="6" class="text-center">${message}</td></tr>
                         `);
-                        $("#deactivated-routine-table-body").append(`
-                            <tr><td colspan="6" class="text-center">No deactivated backup routines available</td></tr>
-                        `);
-                    } else {
-                        // Iterate and append each routine to the appropriate table
-                        routines.forEach(function (routine) {
-                            var routineRow = `
-                                <tr id="routine-${routine.id}">
-                                    <td>${routine.instance__instance_name}</td>
-                                    <td>${routine.backup_type}</td>
-                                    <td>${routine.interval}</td>
-                                    <td>${routine.time}</td>
-                                    <td>${routine.status}</td>
-                                    <td>
-                                        <a href="#" class="btn btn-secondary" onclick="toggleRoutine(${routine.id}, '${routine.status}')">
-                                            ${routine.status === 'active' ? 'Deactivate' : 'Activate'}
-                                        </a>
-                                        <a href="#" class="btn btn-danger" onclick="deleteRoutine(${routine.id})">Delete</a>
-                                    </td>
-                                </tr>
-                            `;
+                    }
 
-                            if (routine.status === 'active') {
-                                $("#activated-routine-table-body").append(routineRow);
-                                activatedCount++;
-                            } else {
-                                $("#deactivated-routine-table-body").append(routineRow);
-                                deactivatedCount++;
-                            }
-                        });
-
-                        // If no activated routines, show "No data" for activated table
-                        if (activatedCount === 0) {
-                            $("#activated-routine-table-body").append(`
-                                <tr><td colspan="6" class="text-center">No activated backup routines available</td></tr>
-                            `);
+                    // Iterate and append each routine to the appropriate table
+                    routines.forEach(function (routine) {
+                        if (routine.status === 'active') {
+                            appendRoutineRow(routine, "#activated-routine-table-body", false);  // No delete button for activated routines
+                            activatedCount++;
+                        } else {
+                            appendRoutineRow(routine, "#deactivated-routine-table-body", true);  // Show delete button for deactivated routines
+                            deactivatedCount++;
                         }
+                    });
 
-                        // If no deactivated routines, show "No data" for deactivated table
-                        if (deactivatedCount === 0) {
-                            $("#deactivated-routine-table-body").append(`
-                                <tr><td colspan="6" class="text-center">No deactivated backup routines available</td></tr>
-                            `);
-                        }
+                    // Show "No data" if no routines in the table
+                    if (activatedCount === 0) {
+                        appendNoDataRow("#activated-routine-table-body", "No activated backup routines available");
+                    }
+                    if (deactivatedCount === 0) {
+                        appendNoDataRow("#deactivated-routine-table-body", "No deactivated backup routines available");
                     }
                 } else {
                     console.error("Error loading backup routines:", data.message);
@@ -257,33 +270,59 @@
 
 
 
-    function load_backup_history(params) {
+
+    function load_backup_history() {
         $.ajax({
             url: "/api/backup/history/",
             type: "GET",
             success: function (data) {
                 console.log("return of load_backup_history: ", data);
-                // Clear the table content
-                $("#backup-history-table tbody").empty();
-                var array_of_data = data.data;
-                if (array_of_data.length === 0) {
-                    $("#backup-history-table tbody").append(`
-                    <tr><td colspan="5" class="text-center">No backup history available</td></tr>
-                `);
-                } else {
+                $("#mysql-auto-backup-table tbody").empty();
+                if (Array.isArray(data.MySQL) && data.MySQL.length > 0) {
+                    data.MySQL.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     // Populate the table with the received data
-                    array_of_data.forEach(function (backup) {
-                        $("#backup-history-table tbody").append(`
+                    data.MySQL.forEach(function (file) {
+                    $("#mysql-auto-backup-table tbody").append(`
                         <tr>
-                            <td>${backup.timestamp}</td>
-                            <td>${backup.db_type}</td>
-                            <td>${backup.backup_type}</td>
-                            <td>${(backup.size / (1024 * 1024)).toFixed(2)} MB</td>
-                            <td>${backup.status}</td>
+                            <td>${file.name}</td>
+                            <td>${file.backup_type}</td>
+                            <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
+                            <td>${file.created_at}</td>
+                            <td><a href="/backup/download/auto/${file.name}" class="btn btn-success">Download</a></td>
                         </tr>
                         `);
                     });
+                } else {
+                    console.log("No MySQL backup history available", data.MySQL);
+                    $("#mysql-auto-backup-table tbody").append(`
+                        <tr><td colspan="5" class="text-center">No MySQL backup history available</td></tr>
+                    `);
                 }
+                
+                // MongoDB backup history
+                $("#mongo-auto-backup-table tbody").empty();
+                if (Array.isArray(data.MongoDB) && data.MongoDB.length > 0) {
+                    data.MongoDB.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    // Populate the table with the received data
+                    data.MongoDB.forEach(function (file) {
+                        $("#mongo-auto-backup-table tbody").append(`
+                                <tr>
+                                    <td>${file.name}</td>
+                                    <td>${file.backup_type}</td>
+                                    <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
+                                    <td>${file.created_at}</td>
+                                    <td><a href="/backup/download/auto/${file.name}" class="btn btn-success">Download (ZIP)</a></td>
+                                </tr>
+                        `);
+                    });
+                } else {
+                    $("#mongo-auto-backup-table tbody").append(`
+                        <tr><td colspan="5" class="text-center">No MongoDB backup history available</td></tr>
+                    `);
+                }
+
+
+
             },
             error: function (xhr, status, error) {
                 console.error("Error fetching backup history:", error);
@@ -336,11 +375,11 @@
 
 
     function showLoading() {
-        $('#loading-spinner').show();
+        $('#loading-indicator').show();
     }
 
     function hideLoading() {
-        $('#loading-spinner').hide();
+        $('#loading-indicator').hide();
     }
 
     // Function to load databases based on the selected instance
@@ -350,7 +389,7 @@
             db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
         }
 
-        showLoading(); // Show loading spinner
+        showLoading(); // Show loading spinnerT
 
         // AJAX request to retrieve databases
         $.ajax({
@@ -447,7 +486,7 @@
         });
     });
 
-    function create_backup_routine() {
+    function listen_create_backup_routine() {
         // Handle form submission for creating a new backup routine
         $('#backupModal form').on('submit', function (e) {
             e.preventDefault(); // Prevent the default form submission
@@ -488,9 +527,8 @@
     }
     $(document).ready(function () {
         //On page load
-        load_backup_history();
-        load_backup_routine();
-        create_backup_routine();
+
+        listen_create_backup_routine();
         // Initialize instance list
         $.ajax({
             type: "get",
@@ -512,7 +550,8 @@
                 alert("Error loading instances: " + errorThrown);
             }
         });
-        
+        load_backup_history();
+        load_backup_routine();
     });
 </script>
 {% endblock %}

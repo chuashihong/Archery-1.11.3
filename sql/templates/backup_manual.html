@@ -64,6 +64,9 @@
         </thead>
         <tbody>
             <!-- AJAX load_backup_files() will populate this table -->
+            <!-- loading indicator -->
+            <tr id="loading-indicator" style="display: none;">
+                <td colspan="5" class="text-center">Loading...</td>
         </tbody>
     </table>
 
@@ -81,6 +84,8 @@
         </thead>
         <tbody>
             <!-- AJAX load_backup_files() will populate this table -->    
+            <tr id="loading-indicator" style="display: none;">
+                <td colspan="5" class="text-center">Loading...</td>
         </tbody>
     </table>
 </section>
@@ -96,11 +101,11 @@
 <script>
 
 function showLoading() {
-    $('#loading-spinner').show();
+    $('#loading-indicator').show();
 }
 
 function hideLoading() {
-    $('#loading-spinner').hide();
+    $('#loading-indicator').hide();
 }
 
 // Function to load databases based on the selected instance
@@ -153,22 +158,22 @@ function load_backup_files() {
         type: "GET",  // GET request for retrieving data
         url: "/backup/files/",  // Adjust this URL based on your API endpoint
         success: function (data) {
-            console.log(data);  // Log the response to check structure
+            console.log("Backup files data:", data);  // Log the response to inspect the structure
             // MySQL Backup Rendering
-            $("#mysql-backup-table tbody").empty();  // Clear the current table content
+            $("#mysql-backup-table tbody").empty();
             if (Array.isArray(data.MySQL) && data.MySQL.length > 0) {
                 // Sort the backup files by date (newest first)
                 data.MySQL.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 data.MySQL.forEach(function (file) {
                     $("#mysql-backup-table tbody").append(`
-                            <tr>
-                                <td>${file.name}</td>
-                                <td>${file.backup_type}</td>
-                                <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
-                                <td>${file.created_at}</td>
-                                <td><a href="/backup/download/${file.name}" class="btn btn-success">Download</a></td>
-                            </tr>
-                        `);
+                        <tr>
+                            <td>${file.name}</td>
+                            <td>${file.backup_type}</td>
+                            <td>${(file.size / (1024 * 1024)).toFixed(2)} MB</td>
+                            <td>${file.created_at}</td>
+                            <td><a href="/backup/download/${file.name}" class="btn btn-success">Download</a></td>
+                        </tr>
+                    `);
                 });
             } else {
                 $("#mysql-backup-table tbody").append(`
