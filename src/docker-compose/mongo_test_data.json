@@ -1,0 +1,26 @@
+{
+    "test_database1": {
+        "employees": [
+            {"name": "Alice", "age": 30, "job": "Engineer", "email": "alice@example.com", "hire_date": "2015-06-20", "projects": ["Project A", "Project C"], "salary": 85000},
+            {"name": "Bob", "age": 25, "job": "Designer", "email": "bob@example.com", "hire_date": "2018-03-12", "projects": ["Project B"], "salary": 62000},
+            {"name": "Carol", "age": 28, "job": "Manager", "email": "carol@example.com", "hire_date": "2016-10-01", "projects": ["Project A", "Project B", "Project D"], "salary": 95000}
+        ],
+        "departments": [
+            {"dept_id": 1, "dept_name": "Engineering", "location": "New York", "head": "Alice", "budget": 500000, "floor": 5},
+            {"dept_id": 2, "dept_name": "Design", "location": "San Francisco", "head": "Bob", "budget": 300000, "floor": 3},
+            {"dept_id": 3, "dept_name": "HR", "location": "Los Angeles", "head": "Diane", "budget": 150000, "floor": 2}
+        ]
+    },
+    "test_database2": {
+        "products": [
+            {"product_id": "P001", "name": "Laptop", "category": "Electronics", "price": 1200, "stock": 50, "supplier": "Supplier X", "warranty_years": 2},
+            {"product_id": "P002", "name": "Chair", "category": "Furniture", "price": 150, "stock": 200, "supplier": "Supplier Y", "material": "Wood"},
+            {"product_id": "P003", "name": "Pen", "category": "Stationery", "price": 2, "stock": 5000, "supplier": "Supplier Z", "color": "Blue", "refillable": true}
+        ],
+        "orders": [
+            {"order_id": "O1001", "product_id": "P001", "quantity": 2, "customer": "Customer A", "order_date": "2024-01-15", "status": "Shipped", "shipping_address": "123 Elm St, Springfield"},
+            {"order_id": "O1002", "product_id": "P002", "quantity": 1, "customer": "Customer B", "order_date": "2024-02-20", "status": "Pending", "shipping_address": "456 Oak St, Shelbyville"},
+            {"order_id": "O1003", "product_id": "P003", "quantity": 100, "customer": "Customer C", "order_date": "2024-03-05", "status": "Delivered", "shipping_address": "789 Maple Ave, Capital City"}
+        ]
+    }
+}
