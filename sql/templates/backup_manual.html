@@ -287,17 +287,14 @@ function table_list() {
     let db_name = "";
     // Get the selected option element
     let selectedOption = $("#instance").find(":selected");
-    console.log("Selected option:", selectedOption);  // Log the selected option for inspection
     // Retrieve the 'instance-name' attribute value
     let instance_name = selectedOption.attr("instance-name");
-    // let instance_name = $("#instance").val();
 
     if (instance_name) {
         // Retrieve 'instance-type' attribute for selected instance
         db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
         db_name = $("#db_name").val();  // Ensure this is populated based on selected DB
     }
-    console.log( "hii", $("#instance").val(), $("#db_name").val());  // Log the values for inspection
     let data = {
         instance_name: instance_name,
         db_name: db_name,
