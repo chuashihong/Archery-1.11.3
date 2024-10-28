@@ -38,7 +38,6 @@
                         </div>
                         <div class="form-group">
                             <label for="instance">Select Instance:</label>
-                            <label for="instance" class="block text-lg font-semibold text-gray-800">Select Instance:</label>
                             <select id="instance" class="form-control selectpicker block w-full mt-1 rounded-md border-gray-300 shadow-sm"
                                 name="instance_list" title="请选择实例" data-live-search="true">
                                 <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
@@ -449,7 +448,7 @@
             db_name: db_name,
             db_type: db_type
         };
-        console.log("Data for table list:", data);  // Log the data to inspect the structure
+        console.log("Data sent for table/collection list:", data);  // Log the data to inspect the structure
 
         // Show loading spinner
         showLoading();
@@ -460,34 +459,10 @@
             url: "/data_dictionary/table_list/",
             dataType: "json",
             data: data,
-            // success: function (data) {
-            //     hideLoading();  // Hide loading spinner on success
-
-            //     console.log("Table list:", data);  // Log for debugging purposes
-
-            //     // Check if the data has expected status and structure
-            //     if (data.status === 0 && Array.isArray(data.data)) {
-            //         $("#table_name").empty();  // Clear existing options
-                    
-            //         // Iterate over data and add options to the select
-            //         data.data.forEach(function (table) {
-            //             $("#table_name").append(`<option value="${table.table_name}">${table.table_name}</option>`);
-            //         });
-
-            //         // Refresh the select picker for UI updates
-            //         $('#table_name').selectpicker('refresh');
-                    
-            //         // Enable the backup button
-            //         $('#backup-btn').prop('disabled', false);
-            //     } else {
-            //         console.error("Invalid data format or no tables found:", data);
-            //         alert("No tables found or an error occurred.");
-            //     }
-            // },
             success: function (data) {
                 hideLoading();  // Hide loading spinner on success
 
-                console.log("Table list:", data);  // Log for debugging purposes
+                console.log("Table list returned from backend:", data);  // Log for debugging purposes
 
                 // Check if the data has expected status and structure
                 if (data.status === 0 && typeof data.data === "object") {
@@ -529,7 +504,6 @@
             }
         });
     }
-
 
     // When the instance is selected, load the corresponding databases
     $("#instance").change(function () {
