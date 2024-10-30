@@ -13,6 +13,7 @@
                         <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
                         <optgroup id="optgroup-mssql" label="MsSQL"></optgroup>
                         <optgroup id="optgroup-oracle" label="Oracle"></optgroup>
+                        <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
                     </select>
                 </div>
                 <div class="form-group">
@@ -272,6 +273,60 @@
                         </div>
                     </div>
                 </div> <!--modal-body-->
+                <div class="modal-body" id="modal-body-mongo" >
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Collection Details</div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table id="meta_data" class="table table-striped table-hover"
+                                       style="table-layout:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    <tbody>
+                                        <tr>
+                                            <th>Storage Size</th>
+                                            <td id="storage_size"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Document Count</th>
+                                            <td id="document_count"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Avg Document Size</th>
+                                            <td id="avg_document_size"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Index Count</th>
+                                            <td id="index_count"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Total Index Size</th>
+                                            <td id="total_index_size"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Examples of documents</div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table id="field-list-oracle" data-toggle="table" class="table table-striped table-hover"
+                                       style="table-layout:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Index Information</div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table id="index-list-oracle" data-toggle="table" class="table table-striped table-hover"
+                                       style="table-layout:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!--modal-body-->
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
     </div><!-- /.modal -->
@@ -290,7 +345,7 @@
                     url: "/group/user_all_instances/",
                     dataType: "json",
                     data: {
-                        db_type: ['mysql', 'mssql', 'oracle']
+                        db_type: ['mysql', 'mssql', 'oracle', 'mongo']
                     },
                     complete: function () {
                         if ($('#instance_name').val()) {
@@ -314,6 +369,8 @@
                                     $("#optgroup-mssql").append(instance_name);
                                 } else if (result[i]['db_type'] === 'oracle') {
                                     $("#optgroup-oracle").append(instance_name);
+                                } else if (result[i]['db_type'] === 'mongo') {
+                                    $("#optgroup-mongo").append(instance_name);
                                 }
                             }
                             $('#instance_name').selectpicker('render');
@@ -443,10 +500,14 @@
             // console.log(ins_name, db_name, tb_name);
             var inst_db_type_ind = instance_result.findIndex((value)=>value.instance_name==ins_name);
             var inst_db_type = instance_result[inst_db_type_ind]['db_type'];
-
+            var url = "/data_dictionary/table_info/";
+            if (inst_db_type === 'mongo') {
+                fetchCollectionInfo(ins_name, inst_db_type, tb_name);
+                return;
+            }
             $.ajax({
                 type: "get",
-                url: "/data_dictionary/table_info/",
+                url: url,
                 dataType: "json",
                 data: {
                     instance_name: ins_name,
@@ -552,6 +613,51 @@
                     alert(errorThrown);
                 },
                 complete: function () {
+                }
+            });
+        }
+    
+        function fetchCollectionInfo(instance_name, db_type, collection_name) {
+            console.log("Fetching collection info for", instance_name, db_type, collection_name);
+            $.ajax({
+                type: "get",
+                url: "/data_dictionary/collection_info/",
+                data: {
+                    instance_name: instance_name,
+                    db_type: db_type,
+                    collection_name: collection_name
+                },
+                success: function (response) {
+                    console.log("Collection info response:", response);
+                    // Populate basic collection stats
+                    $("#storage_size").text(response.storage_size + " bytes");
+                    $("#document_count").text(response.document_count);
+                    $("#avg_document_size").text(response.avg_document_size + " bytes");
+                    $("#index_count").text(response.index_count);
+                    $("#total_index_size").text(response.total_index_size + " bytes");
+
+                    // Populate example documents
+                    let fieldListTable = $("#field-list-oracle");
+                    fieldListTable.empty(); // Clear previous data
+                    response.sample_documents.forEach(doc => {
+                        let row = "<tr>";
+                        for (const [key, value] of Object.entries(doc)) {
+                            row += `<td>${key}: ${JSON.stringify(value)}</td>`;
+                        }
+                        row += "</tr>";
+                        fieldListTable.append(row);
+                    });
+
+                    // Populate index information
+                    let indexListTable = $("#index-list-oracle");
+                    indexListTable.empty(); // Clear previous data
+                    response.indexes.forEach(index => {
+                        let indexRow = `<tr><td>${JSON.stringify(index)}</td></tr>`;
+                        indexListTable.append(indexRow);
+                    });
+                },
+                error: function (xhr, status, error) {
+                    console.log("Error fetching collection info:", error);
                 }
             });
         }

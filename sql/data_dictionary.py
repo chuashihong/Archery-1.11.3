@@ -108,7 +108,7 @@ def export(request):
 
     try:
         instance = user_instances(
-            request.user, db_type=["mysql", "mssql", "oracle"]
+            request.user, db_type=["mysql", "mssql", "oracle", "mongo"]
         ).get(instance_name=instance_name)
         query_engine = get_engine(instance=instance)
     except Instance.DoesNotExist:
@@ -164,3 +164,39 @@ def export(request):
                 "data": [],
             }
         )
+
+def get_collection_info(request):
+    # Extract parameters from the AJAX request
+    instance_name = request.GET.get("instance_name", "")
+    db_type = request.GET.get("db_type", "")
+    collection_name = request.GET.get("collection_name", "")
+
+    # Fetch the instance and initialize MongoDB connection
+    instance = Instance.objects.get(instance_name=instance_name, db_type=db_type)
+    query_engine = get_engine(instance=instance)
+    connection = query_engine.get_connection()
+
+    # Use `admin` as fallback if `db_name` is empty or None
+    db_name = instance.db_name or "admin"
+    db = connection[db_name]
+    
+    # Check if the collection exists
+    if collection_name not in db.list_collection_names():
+        return JsonResponse({"error": "Collection not found"}, status=200)
+
+    # Retrieve collection stats
+    stats = db.command("collStats", collection_name)
+
+    # Prepare the JSON response data
+    response_data = {
+        "storage_size": stats.get("storageSize"),
+        "document_count": stats.get("count"),
+        "avg_document_size": stats.get("avgObjSize"),
+        "index_count": len(list(db[collection_name].list_indexes())),
+        "total_index_size": stats.get("totalIndexSize"),
+        "sample_documents": list(db[collection_name].find().limit(5)),  # Fetch example documents
+        "indexes": list(db[collection_name].list_indexes())
+    }
+
+    # Return the JSON response
+    return JsonResponse(response_data, safe=False)
