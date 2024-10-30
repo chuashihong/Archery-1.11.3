@@ -840,7 +840,7 @@ class MongoEngine(EngineBase):
         result.rows = db.list_collection_names()
         return result
 
-    def get_group_collections_by_db(self, db_name):
+    def get_group_tables_by_db(self, db_name):
         data = {}
         conn = self.get_connection()
         db = conn[db_name]

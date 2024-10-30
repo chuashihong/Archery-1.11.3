@@ -28,19 +28,6 @@ def table_list(request):
             instance = Instance.objects.get(
                 instance_name=instance_name, db_type=db_type
             )
-
-            # if db_type is mongo, do the following
-            if instance.db_type == "mongo":
-                query_engine = get_engine(instance=instance)
-                db_name = query_engine.escape_string(db_name)
-                data = query_engine.get_group_collections_by_db(db_name=db_name)
-                res = {"status": 0, "data": data}
-                return HttpResponse(
-                    json.dumps(res, cls=ExtendJSONEncoder, bigint_as_string=True),
-                    content_type="application/json",
-                )
-                
-
             query_engine = get_engine(instance=instance)
             db_name = query_engine.escape_string(db_name)
             data = query_engine.get_group_tables_by_db(db_name=db_name)

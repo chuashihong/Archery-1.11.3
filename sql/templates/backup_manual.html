@@ -207,24 +207,33 @@ function load_backup_files() {
         }
     });
 }
-
-
-
-
-$('#create-backup-routine-btn').click(function () {
-    $('#backup-routine-modal').modal('show');
-
+// Show/hide relevant inputs based on backup type selection
+$("#backup_type").change(function () {
+    let backupType = $(this).val();
+    $("#db_name").empty();
+    $("#table_name").empty();
+    if (backupType === "instance") {
+        $("#db_container, #table_container").hide();
+    } else if (backupType === "database") {
+        $("#db_container").show();
+        $("#table_container").hide();
+    } else if (backupType === "table") {
+        $("#db_container, #table_container").show();
+    }
+    $('#backup-btn').prop('disabled', false);  // Enable the backup button after selection
 });
-
 
 // When the instance is selected, load the corresponding databases
 $("#instance").change(function () {
     database_list(); // Load databases for selected instance
+    $("#db_name").empty();
+    $("#table_name").empty();
 });
 
 // When the database is selected, load the corresponding tables
 $("#db_name").change(function () {
     table_list(); // Load tables for selected database
+    $("#table_name").empty();
 });
 
 // Perform backup button click event
@@ -358,23 +367,7 @@ function table_list() {
 }
 
 $(document).ready(function () {
-    // Show/hide relevant inputs based on backup type selection
-    $("#backup_type").change(function () {
-        let backupType = $(this).val();
-        if (backupType === "instance") {
-            $("#db_container, #table_container").hide();
-            $("#db_name").val('');
-            $("#table_name").val('');
-        } else if (backupType === "database") {
-            $("#db_container").show();
-            $("#table_container").hide();
-            $("#table_name").val('');
-        } else if (backupType === "table") {
-            $("#db_container, #table_container").show();
-        }
-        $('#backup-btn').prop('disabled', false);  // Enable the backup button after selection
-    });
-
+    
     // Initialize instance list on page load
     $.ajax({
         type: "get",
