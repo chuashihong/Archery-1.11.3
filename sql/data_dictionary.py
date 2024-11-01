@@ -1,17 +1,18 @@
 # -*- coding: UTF-8 -*-
 import datetime
 import os
-from urllib.parse import quote
-
-import MySQLdb
 import simplejson as json
+import pymongo
+
+from pymongo.errors import ConnectionFailure, OperationFailure
+from urllib.parse import quote
 from django.template import loader
 from django.conf import settings
 from sql.engines import get_engine
 from django.contrib.auth.decorators import permission_required
 from django.http import HttpResponse, JsonResponse, FileResponse
 
-from common.utils.extend_json_encoder import ExtendJSONEncoder
+from common.utils.extend_json_encoder import ExtendJSONEncoder, MongoDBJSONEncoder
 from sql.utils.resource_group import user_instances
 from .models import Instance
 
@@ -165,38 +166,64 @@ def export(request):
             }
         )
 
+@permission_required("sql.menu_data_dictionary", raise_exception=True)
 def get_collection_info(request):
-    # Extract parameters from the AJAX request
+    """Retrieve metadata and statistics for a MongoDB collection."""
     instance_name = request.GET.get("instance_name", "")
-    db_type = request.GET.get("db_type", "")
+    db_name = request.GET.get("db_name", "")
     collection_name = request.GET.get("collection_name", "")
+    if instance_name and db_name and collection_name:
+        data = {}
+        try:
+            # Fetch the instance and initialize MongoDB connection
+            instance = Instance.objects.get(instance_name=instance_name, db_type="mongo")
+            query_engine = get_engine(instance=instance)
+            connection = query_engine.get_connection()
+            db = connection[db_name]
 
-    # Fetch the instance and initialize MongoDB connection
-    instance = Instance.objects.get(instance_name=instance_name, db_type=db_type)
-    query_engine = get_engine(instance=instance)
-    connection = query_engine.get_connection()
+            # Check if the collection exists
+            if collection_name not in db.list_collection_names():
+                return JsonResponse({"error": "Collection not found"}, status=404)
+            
+            # Retrieve collection stats
+            stats = db.command("collStats", collection_name)
+            collection = db[collection_name]
+            
+            # Summarize sample documents with actual values
+            sample_documents = list(collection.find().limit(5))
 
-    # Use `admin` as fallback if `db_name` is empty or None
-    db_name = instance.db_name or "admin"
-    db = connection[db_name]
-    
-    # Check if the collection exists
-    if collection_name not in db.list_collection_names():
-        return JsonResponse({"error": "Collection not found"}, status=200)
+            # Generate unique fields and data types from sample documents
+            unique_fields = {}
+            for doc in sample_documents:
+                for field, value in doc.items():
+                    field_type = type(value).__name__
+                    if field not in unique_fields:
+                        unique_fields[field] = field_type
+                    elif unique_fields[field] != field_type:
+                        unique_fields[field] = "Mixed"  # Indicate mixed types if inconsistency found
 
-    # Retrieve collection stats
-    stats = db.command("collStats", collection_name)
+            # Prepare the JSON response data
+            data = {
+                "storage_size": stats.get("storageSize"),
+                "document_count": stats.get("count"),
+                "avg_document_size": stats.get("avgObjSize"),
+                "index_count": len(list(collection.list_indexes())),
+                "total_index_size": stats.get("totalIndexSize"),
+                "sample_documents": sample_documents,
+                "field_types": unique_fields,  
+                "indexes": list(collection.list_indexes())
+            }
+            res = {"status": 0, "data": data}
+            
+        except Instance.DoesNotExist:
+            res = {"status": 1, "msg": "Instance does not exist"}
+        except ConnectionFailure:
+            res = {"status": 1, "msg": "Failed to connect to MongoDB"}
+        except OperationFailure as e:
+            res = {"status": 1, "msg": f"Operation failed: {str(e)}"}
+        except Exception as e:
+            res = {"status": 1, "msg": str(e)}
+    else:
+        res = {"status": 1, "msg": "Invalid request parameters"}
 
-    # Prepare the JSON response data
-    response_data = {
-        "storage_size": stats.get("storageSize"),
-        "document_count": stats.get("count"),
-        "avg_document_size": stats.get("avgObjSize"),
-        "index_count": len(list(db[collection_name].list_indexes())),
-        "total_index_size": stats.get("totalIndexSize"),
-        "sample_documents": list(db[collection_name].find().limit(5)),  # Fetch example documents
-        "indexes": list(db[collection_name].list_indexes())
-    }
-
-    # Return the JSON response
-    return JsonResponse(response_data, safe=False)
+    return JsonResponse(res, encoder= MongoDBJSONEncoder, safe=False)

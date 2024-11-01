@@ -1411,10 +1411,3 @@ class MongoEngine(EngineBase):
             exec_result.error = str(e)
         return exec_result
     
-    def get_all_collections(self, db_name):
-        """获取所有的集合"""
-        result = ResultSet()
-        conn = self.get_connection()
-        db = conn[db_name]
-        result.rows = db.list_collection_names()
-        return result
