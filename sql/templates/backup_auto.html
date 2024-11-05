@@ -515,61 +515,6 @@
         table_list(); // Load tables for selected database
     });
 
-    // Perform backup button click event
-    $("#backup-btn").click(function () {
-        // Disable the button to prevent multiple clicks
-        $(this).prop('disabled', true);
-
-        // Validate the selected backup type
-        let backupType = $("#backup_type").val();
-        if (backupType === "database" && !$("#db_name").val()) {
-            alert("Please select a database to backup.");
-            $("#backup-btn").prop('disabled', false);
-            return;
-        } else if (backupType === "table" && !$("#table_name").val()) {
-            alert("Please select a table to backup.");
-            $("#backup-btn").prop('disabled', false);
-            return;
-        }
-
-        // Show loading spinner
-        showLoading();
-        let data = {
-            backup_type: $("#backup_type").val(),
-            instance_id: $("#instance").val(),
-            db_name: $("#db_name").val(),
-            table_name: $("#table_name").val()
-        };
-        console.log("The data:", data);  // Log the data to inspect the structure
-        $.ajax({
-            type: "post",  // Use POST for sending data
-            url: "/backup/manual/",  // URL for the manual backup endpoint
-            data: data,  // Data to send to the endpoint
-            success: function (data) {
-                // Hide loading spinner
-                hideLoading();
-
-                // Enable the button again
-                $("#backup-btn").prop('disabled', false);
-
-                // Check the response from the server
-                if (data.success) {
-                    alert("Backup successful!");
-                    // Reload the backup files
-                    load_backup_files();
-                } else {
-                    alert("Backup failed: " + data.message);
-                }
-            },
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                // Hide loading spinner and enable the button in case of error
-                hideLoading();
-                $("#backup-btn").prop('disabled', false);
-                alert("Error performing backup: " + errorThrown);
-            }
-        });
-    });
-
     function listen_create_backup_routine() {
         // Handle form submission for creating a new backup routine
         $('#backupModal form').on('submit', function (e) {

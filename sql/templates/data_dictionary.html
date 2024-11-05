@@ -695,7 +695,6 @@
                     for (const [field, value] of Object.entries(doc)) {
                         let fieldType = typeof value;
                         let valueDisplay = JSON.stringify(value);
-
                         // Collapse arrays or embedded documents with more than 5 items
                         if (Array.isArray(value) && value.length > 5) {
                             valueDisplay = `
@@ -705,7 +704,7 @@
                                     ${JSON.stringify(value, null, 2)}
                                 </div>
                             `;
-                        } else if (fieldType === "object" && Object.keys(value).length > 5) {
+                        } else if (fieldType === "object" && value !== null && Object.keys(value).length > 5) {
                             valueDisplay = `
                                 <span class="text-gray-600">Array (${Object.keys(value).length} fields)</span>
                                 <button onclick="toggleCollapse('${field + index}')" class="text-blue-500 ml-2">Show More</button>
@@ -738,12 +737,46 @@
                 });
 
                 // Populate index information
+                // let indexListTable = $("#index-list-oracle tbody");
+                // indexListTable.empty(); // Clear previous data
+                // response.indexes.forEach(index => {
+                //     let indexRow = `<tr><td>${JSON.stringify(index)}</td></tr>`;
+                //     indexListTable.append(indexRow);
+                // });
+                // Populate index information in a user-friendly format
                 let indexListTable = $("#index-list-oracle tbody");
-                indexListTable.empty(); // Clear previous data
+                indexListTable.empty();
                 response.indexes.forEach(index => {
-                    let indexRow = `<tr><td>${JSON.stringify(index)}</td></tr>`;
-                    indexListTable.append(indexRow);
+                    let indexDisplay = `
+                    <div class="border border-gray-200 shadow-lg rounded-lg p-4 bg-white mb-4">
+                        <h6 class="text-lg font-semibold mb-3">Index: ${index.name}</h6>
+                        <ul class="space-y-2">
+                            <li><strong>Version:</strong> ${index.v}</li>
+                            <li><strong>Fields:</strong> ${Object.entries(index.key).map(([field, order]) => `${field} (${order === 1 ? 'Ascending' : order === -1 ? 'Descending' : order})`).join(", ")}</li>
+                `;
+
+                    if (index.default_language) {
+                        indexDisplay += `<li><strong>Default Language:</strong> ${index.default_language}</li>`;
+                    }
+
+                    if (index.language_override) {
+                        indexDisplay += `<li><strong>Language Override Field:</strong> ${index.language_override}</li>`;
+                    }
+
+                    if (index.weights) {
+                        indexDisplay += `
+                        <li><strong>Field Weights:</strong> ${Object.entries(index.weights).map(([field, weight]) => `${field}: ${weight}`).join(", ")}</li>
+                    `;
+                    }
+
+                    if (index.textIndexVersion) {
+                        indexDisplay += `<li><strong>Text Index Version:</strong> ${index.textIndexVersion}</li>`;
+                    }
+
+                    indexDisplay += `</ul></div>`;
+                    indexListTable.append(indexDisplay);
                 });
+
 
                 // Open the modal to display data
                 $("#mongoCollectionModal").modal("show");

@@ -244,11 +244,7 @@ def create_backup_routine(request):
         db_name = request.POST.get("db_name", None)
         table_name = request.POST.get("table_name", None)
         interval = request.POST.get("interval")
-        time = request.POST.get("time")
-
-        # If time is "", set it to None
-        if time == "":
-            time = None
+        time = request.POST.get("time", None)
 
         # Fetch the instance
         instance = Instance.objects.get(id=instance_id)
