@@ -798,7 +798,8 @@ class BackupRoutine(models.Model):
         ('weekly', 'Weekly'),
         ('monthly', 'Monthly'),
     ]
-    
+
+    database_type = models.CharField("数据库类型", max_length=20)
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE, verbose_name="实例")
     db_name = models.CharField("数据库名称", max_length=255, blank=True, null=True)
     table_name = models.CharField("表名称", max_length=255, blank=True, null=True)

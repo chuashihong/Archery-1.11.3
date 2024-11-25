@@ -248,9 +248,11 @@ def create_backup_routine(request):
 
         # Fetch the instance
         instance = Instance.objects.get(id=instance_id)
+        database_type = instance.db_type
         
         # Create new BackupRoutine
         routine = BackupRoutine.objects.create(
+            database_type=database_type,
             instance=instance,
             backup_type=backup_type,
             db_name=db_name,
@@ -325,6 +327,7 @@ def api_backup_routines(request):
     
     routines = BackupRoutine.objects.all().values(
         'id',            # Unique ID of the routine
+        "database_type",
         'instance__instance_name',  # Name of the instance
         'db_name',        # Database name (if applicable)
         'table_name',     # Table name (if applicable)

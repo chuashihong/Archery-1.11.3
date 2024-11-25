@@ -91,6 +91,7 @@
         <thead class="thead-light">
             <tr>
                 <th class="px-6 py-3">Database Type</th>
+                <th class="px-6 py-3">Database Name</th>
                 <th class="px-6 py-3">Backup Type</th>
                 <th class="px-6 py-3">Interval</th>
                 <th class="px-6 py-3">Time</th>
@@ -109,6 +110,7 @@
         <thead class="thead-light">
             <tr>
                 <th class="px-6 py-3">Database Type</th>
+                <th class="px-6 py-3">Database Name</th>
                 <th class="px-6 py-3">Backup Type</th>
                 <th class="px-6 py-3">Interval</th>
                 <th class="px-6 py-3">Time</th>
@@ -221,6 +223,7 @@
                     function appendRoutineRow(routine, tableBody, showDelete) {
                         var routineRow = `
                             <tr id="routine-${routine.id}">
+                                <td>${routine.database_type}</td>
                                 <td>${routine.instance__instance_name}</td>
                                 <td>${routine.backup_type}</td>
                                 <td>${routine.interval}</td>
@@ -390,7 +393,7 @@
             db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
         }
 
-        showLoading(); // Show loading spinnerT
+        showLoading(); // Show loading spinner
 
         // AJAX request to retrieve databases
         $.ajax({
