@@ -32,11 +32,6 @@
             <label for="restore_time">Restore Time:</label>
             <input type="datetime-local" id="restore_time" name="restore_time" class="form-control">
         </div>
-    
-        <div class="form-group">
-            <label for="unzip_password">Unzip Password:</label>
-            <input type="text" id="unzip_password" name="unzip_password" class="form-control">
-        </div>
 
         <button type="submit" class="btn btn-primary">Submit Restore Request</button>
     </form>
@@ -112,7 +107,7 @@
                 <th>Status</th>
             </tr>
         </thead>
-        
+
     </table>
 
     <h2>Closed Restore Requests</h2>
@@ -157,7 +152,6 @@
                 <p><strong>Instance:</strong> <span id="modalInstance"></span></p>
                 <p><strong>Database:</strong> <span id="modalDatabase"></span></p>
                 <p><strong>Table:</strong> <span id="modalTable"></span></p>
-                <p><strong>Restore Time:</strong> <span id="modalRestoreTime"></span></p>
                 <pre id="modalCommand"></pre>
             </div>
             <div class="modal-footer">
@@ -203,9 +197,9 @@
                             <tr>
                                 <td>${request.id}</td>
                                 <td>${request.instance_name}</td>
-                                <td>${request.restore_time}</td>
+                                <td>${request.restore_time || "Not Specified"}</td>
                                 <td>${request.db_name}</td>
-                                <td>${request.table_name}</td>
+                                <td>${request.table_name || "All Tables"}</td>
                                 <td>
                                     <button class="btn btn-success btn-sm" onclick="showExecuteModal(${request.id})">Execute</button>
                                     <button class="btn btn-danger btn-sm" onclick="rejectRestoreRequest(${request.id})">Reject</button>
@@ -224,6 +218,7 @@
     }
 
 
+
     function listen_create_restore_request() {
         // Handle form submission for creating a restore request
         $('#restore-form').on('submit', function (e) {
@@ -235,7 +230,6 @@
                 db_name: $('#db_name').val(),
                 table_name: $('#table_name').val(),
                 restore_time: $('#restore_time').val(),
-                unzip_password: $('#unzip_password').val(),
                 csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()  // Django CSRF token
             };
             console.log("Form data:", formData);
@@ -263,24 +257,28 @@
         });
     }
 
-    function showExecuteModal(requestId) {
-        $.ajax({
-            type: "get",
-            url: `/restore/details/${requestId}/`,
-            success: function (data) {
+function showExecuteModal(requestId) {
+    $.ajax({
+        type: "get",
+        url: `/restore/execution/details/${requestId}/`,
+        success: function (data) {
+            if (data.status === "success") {
                 $("#modalInstance").text(data.instance_name);
                 $("#modalDatabase").text(data.db_name);
-                $("#modalTable").text(data.table_name);
-                $("#modalRestoreTime").text(data.restore_time);
-                $("#modalCommand").text(data.command_preview);
+                $("#modalTable").text(data.table_name || "All Tables");
+                $("#modalCommand").text(data.command);
                 $("#modalRequestId").val(requestId);
                 $("#executeModal").modal("show");
-            },
-            error: function () {
-                alert("Failed to load restore details.");
+            } else {
+                alert(data.message);
             }
-        });
-    }
+        },
+        error: function () {
+            alert("Failed to load restore details.");
+        }
+    });
+}
+
 
     // Function to load databases based on the selected instance
     function database_list() {

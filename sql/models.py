@@ -1353,7 +1353,6 @@ class IncBackupRecord(models.Model):
     def __str__(self):
         return f"{self.db_type} - {self.instance_name} ({self.backup_start_time} to {self.backup_end_time})"
 
-
 class RestoreRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -1364,18 +1363,16 @@ class RestoreRequest(models.Model):
     ]
 
     instance = models.ForeignKey('Instance', on_delete=models.CASCADE, verbose_name="Instance")
-    restore_time = models.DateTimeField("Restore Time")
     db_name = models.CharField("Database Name", max_length=100)
     table_name = models.CharField("Table Name", max_length=100, blank=True, null=True)
-    unzip_password = models.CharField("Unzip Password", max_length=100)
+    restore_time = models.DateTimeField("Restore Time", null=True, blank=True) 
     status = models.CharField("Status", max_length=20, choices=STATUS_CHOICES, default='pending')
-    s3_bucket_file_path = models.CharField("S3 File Path", max_length=255)
     created_at = models.DateTimeField("Created At", default=now)
     updated_at = models.DateTimeField("Updated At", auto_now=True)
     outcome = models.TextField("Outcome", blank=True, null=True)
 
     def __str__(self):
-        return f"{self.instance.instance_name} - {self.restore_time}"
+        return f"{self.instance.instance_name} - {self.db_name} - {self.table_name or 'All Tables'}"
 
     class Meta:
         verbose_name = "Restore Request"

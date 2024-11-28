@@ -1,5 +1,5 @@
 import subprocess
-from .models import RestoreRequest, Instance
+from .models import IncBackupRecord, RestoreRequest, Instance
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -100,7 +100,6 @@ def restore_request_create(request):
         db_name = request.POST.get('db_name')
         table_name = request.POST.get('table_name')
         restore_time = request.POST.get('restore_time')
-        unzip_password = request.POST.get('unzip_password')
 
         # Validate the instance and restore time
         try:
@@ -110,12 +109,11 @@ def restore_request_create(request):
 
         # Create a new restore request
         try:
-            restore_request = RestoreRequest.objects.create(
+            RestoreRequest.objects.create(
                 instance=instance,
                 db_name=db_name,
                 table_name=table_name,
                 restore_time=restore_time,
-                unzip_password=unzip_password,
                 status="pending"
             )
             return JsonResponse({"status": "success", "message": "Restore request created successfully"})
@@ -128,22 +126,64 @@ def get_pending_restore_requests(request):
     Returns a list of pending restore requests in JSON format.
     """
     if request.method == 'GET':
-        # Fetch all pending restore requests
         pending_requests = RestoreRequest.objects.filter(status="pending").select_related('instance')
 
-        # Prepare the data to be returned as JSON
         data = []
-        for request in pending_requests:
+        for req in pending_requests:
             data.append({
-                "id": request.id,
-                "instance_name": request.instance.instance_name,
-                "restore_time": request.restore_time.strftime('%Y-%m-%d %H:%M:%S'),
-                "db_name": request.db_name,
-                "table_name": request.table_name,
+                "id": req.id,
+                "instance_name": req.instance.instance_name,
+                "db_name": req.db_name,
+                "table_name": req.table_name or "All Tables",
+                "restore_time": req.restore_time.strftime('%Y-%m-%d %H:%M:%S') if req.restore_time else None,
+                "status": req.status,
+                "created_at": req.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                "updated_at": req.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
             })
 
-        # Return the JSON response
         return JsonResponse({"status": "success", "requests": data})
-    
-    # If the request method is not GET, return an error
+
     return JsonResponse({"status": "error", "message": "Invalid request method"}, status=400)
+
+def get_restore_execution_details(request, request_id):
+    """
+    Fetch details for executing a restore request and generate the Python command preview.
+    """
+    try:
+        restore_request = RestoreRequest.objects.get(id=request_id)
+        instance = restore_request.instance
+
+        # Fetch the corresponding backup record
+        backup_record = IncBackupRecord.objects.filter(
+            instance_name=instance.instance_name,
+            db_name=restore_request.db_name,
+        ).first()
+
+        if not backup_record:
+            return JsonResponse({"status": "error", "message": "No matching backup record found"}, status=404)
+
+        # Construct the Python command
+        command = (
+            f"python mysql_incremental_restore.py -r "
+            f"--datasource='{backup_record.s3_bucket_file_path}' "
+            f"--region 'your-region' "
+            f"--key 'your-key' "
+            f"--secret 'your-secret' "
+            f"--host '{instance.host}' "
+            f"--port '{instance.port}' "
+            f"--user '{instance.user}' "
+            f"--password '{instance.password}' "
+            f"--db_name '{restore_request.db_name}' "
+            f"--table '{restore_request.table_name or ''}'"
+        )
+
+        return JsonResponse({
+            "status": "success",
+            "command": command,
+            "instance_name": instance.instance_name,
+            "db_name": restore_request.db_name,
+            "table_name": restore_request.table_name,
+        })
+
+    except RestoreRequest.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Restore request not found"}, status=404)

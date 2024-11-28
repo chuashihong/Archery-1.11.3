@@ -26,10 +26,10 @@ class BackupSettingsForm(forms.Form):
         # Save or update backup settings logic here
         # For example, save to a model, or write to a settings file
 
-class RestoreRequestForm(forms.ModelForm):
-    class Meta:
-        model = RestoreRequest
-        fields = ['instance', 'restore_time', 'db_name', 'table_name', 'unzip_password']
-        widgets = {
-            'restore_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        }
+# class RestoreRequestForm(forms.ModelForm):
+#     class Meta:
+#         model = RestoreRequest
+#         fields = ['instance', 'restore_time', 'db_name', 'table_name', 'unzip_password']
+#         widgets = {
+#             'restore_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+#         }
