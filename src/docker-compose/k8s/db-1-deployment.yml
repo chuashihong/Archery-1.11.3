@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-1
+  template:
+    metadata:
+      labels:
+        app: db-1
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:5.7
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: chuashihong1
+          ports:
+            - containerPort: 3306
+          # volumeMounts:
+          #   - name: db1-data
+          #     mountPath: /var/lib/mysql
+      # volumes:
+      #   - name: db1-data
+      #     persistentVolumeClaim:
+      #       claimName: db1-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-1-service
+spec:
+  selector:
+    app: db-1
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306

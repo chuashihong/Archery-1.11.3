@@ -3,6 +3,7 @@ import base64
 import simplejson as json
 import psycopg2
 
+from bson import Binary, Code
 from decimal import Decimal
 from datetime import datetime, date, timedelta
 from functools import singledispatch
@@ -12,7 +13,6 @@ from bson.objectid import ObjectId
 from bson.timestamp import Timestamp
 from bson.decimal128 import Decimal128
 from bson.regex import Regex
-
 
 @singledispatch
 def convert(o):
@@ -84,6 +84,24 @@ def _(o):
     return str(o)
 
 
+class MongoDBJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)  # Convert ObjectId to a string
+        elif isinstance(obj, datetime):
+            return obj.isoformat()  # Convert datetime to ISO format
+        elif isinstance(obj, Decimal128):
+            return str(obj)  # Convert Decimal128 to a string
+        elif isinstance(obj, Binary):
+            return obj.hex()  # Convert binary data to a hex string (or use Base64 if needed)
+        elif isinstance(obj, Timestamp):
+            return int(obj.time)  # Convert Timestamp to integer seconds since epoch
+        elif isinstance(obj, Regex):
+            return obj.pattern  # Return regex pattern as a string
+        elif isinstance(obj, Code):
+            return str(obj)  # Convert Code to string representation
+        else:
+            return super().default(obj)
 class ExtendJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         try:

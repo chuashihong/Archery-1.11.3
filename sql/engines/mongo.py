@@ -840,6 +840,27 @@ class MongoEngine(EngineBase):
         result.rows = db.list_collection_names()
         return result
 
+    def get_group_tables_by_db(self, db_name):
+        data = {}
+        conn = self.get_connection()
+        db = conn[db_name]
+        
+        # Retrieve all collection names in the specified database
+        collection_names = db.list_collection_names()
+        
+        for collection_name in collection_names:
+            # Get collection stats to retrieve the comment if available
+            stats = db.command("collStats", collection_name)
+            collection_comment = stats.get("comment", "")  # Defaults to empty if no comment is set
+            
+            # Organize collections by their starting letter
+            first_letter = collection_name[0]
+            if first_letter not in data:
+                data[first_letter] = []
+            data[first_letter].append([collection_name, collection_comment])
+        
+        return data
+    
     def get_all_columns_by_tb(self, db_name, tb_name, **kwargs):
         """获取所有字段, 返回一个ResultSet"""
         # https://github.com/getredash/redash/blob/master/redash/query_runner/mongodb.py
@@ -1389,3 +1410,4 @@ class MongoEngine(EngineBase):
         except Exception as e:
             exec_result.error = str(e)
         return exec_result
+    

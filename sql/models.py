@@ -5,6 +5,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from mirage import fields
 from django.utils.translation import gettext as _
+from django.utils.timezone import now
 from mirage.crypto import Crypto
 
 from common.utils.const import WorkflowStatus, WorkflowType, WorkflowAction
@@ -753,7 +754,69 @@ class ParamHistory(models.Model):
         db_table = "param_history"
         verbose_name = "实例参数修改历史"
         verbose_name_plural = "实例参数修改历史"
+class BackupHistory(models.Model):
+    """Model to store history of backup operations."""
+    
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE, verbose_name="实例")
+    db_type = models.CharField("数据库类型", max_length=50)  # e.g., 'mysql', 'mongodb'
+    backup_type = models.CharField("备份类型", max_length=50)  # e.g., 'instance', 'database', 'table/collection'
+    size = models.BigIntegerField("备份文件大小")  # Size in bytes
+    status = models.CharField("备份状态", max_length=20)  # e.g., 'success', 'failed'
+    created_at = models.DateTimeField("备份时间", auto_now_add=True)
 
+    class Meta:
+        managed = True
+        ordering = ["-created_at"]
+        db_table = "backup_history"
+        verbose_name = "备份历史"
+        verbose_name_plural = "备份历史"
+
+    def __str__(self):
+        return f"{self.db_type} - {self.backup_type} - {self.created_at}"
+
+
+class BackupRoutine(models.Model):
+    """Model to store the automated backup routines."""
+    """Fields Explanation:
+        instance: A ForeignKey linking to the Instance model, which represents the selected database instance (e.g., MySQL, MongoDB).
+        db_name & table_name: These fields store the database and table names for specific database/table backups.
+        backup_type: Defines the backup type (instance, database, or table).
+        interval: Defines how often the backup should run (e.g., daily, weekly, etc.).
+        time: Stores the backup time for daily, weekly, or monthly backups.
+        status: Indicates whether the routine is active or inactive.
+        created_at: Automatically stores the creation time of the routine.
+    """
+    BACKUP_TYPE_CHOICES = [
+        ('instance', 'Backup Entire Instance'),
+        ('database', 'Backup Specific Database'),
+        ('table', 'Backup Specific Table/Collection'),
+    ]
+    
+    INTERVAL_CHOICES = [
+        ('minutely', 'Minutely'),
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+
+    database_type = models.CharField("数据库类型", max_length=20)
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE, verbose_name="实例")
+    db_name = models.CharField("数据库名称", max_length=255, blank=True, null=True)
+    table_name = models.CharField("表名称", max_length=255, blank=True, null=True)
+    backup_type = models.CharField("备份类型", max_length=50, choices=BACKUP_TYPE_CHOICES)
+    interval = models.CharField("备份间隔", max_length=50, choices=INTERVAL_CHOICES)
+    time = models.TimeField("备份时间", blank=True, null=True)  # Time to run the backup
+    status = models.CharField("状态", max_length=20, default='active')  # active or inactive
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+
+    class Meta:
+        db_table = "backup_routine"
+        verbose_name = "备份计划"
+        verbose_name_plural = "备份计划"
+
+    def __str__(self):
+        return f"{self.instance} - {self.backup_type} - {self.interval}"
 
 class ArchiveConfig(models.Model, WorkflowAuditMixin):
     """
@@ -1274,3 +1337,46 @@ class AuditEntry(models.Model):
         return "{0} - {1} - {2} - {3} - {4}".format(
             self.user_id, self.user_name, self.extra_info, self.action, self.action_time
         )
+    
+class IncBackupRecord(models.Model):
+    db_type = models.CharField(max_length=50)
+    instance_name = models.CharField(max_length=100)
+    backup_start_time = models.DateTimeField()
+    backup_end_time = models.DateTimeField()
+    s3_bucket_file_path = models.CharField(max_length=255)
+    s3_uri = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "IncBackupRecord"
+        unique_together = ('db_type', 'instance_name', 'backup_start_time', 'backup_end_time')
+
+    def __str__(self):
+        return f"{self.db_type} - {self.instance_name} ({self.backup_start_time} to {self.backup_end_time})"
+
+
+class RestoreRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    instance = models.ForeignKey('Instance', on_delete=models.CASCADE, verbose_name="Instance")
+    restore_time = models.DateTimeField("Restore Time")
+    db_name = models.CharField("Database Name", max_length=100)
+    table_name = models.CharField("Table Name", max_length=100, blank=True, null=True)
+    unzip_password = models.CharField("Unzip Password", max_length=100)
+    status = models.CharField("Status", max_length=20, choices=STATUS_CHOICES, default='pending')
+    s3_bucket_file_path = models.CharField("S3 File Path", max_length=255)
+    created_at = models.DateTimeField("Created At", default=now)
+    updated_at = models.DateTimeField("Updated At", auto_now=True)
+    outcome = models.TextField("Outcome", blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.instance.instance_name} - {self.restore_time}"
+
+    class Meta:
+        verbose_name = "Restore Request"
+        verbose_name_plural = "Restore Requests"

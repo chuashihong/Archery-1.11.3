@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h1>Backup Management</h1>
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>DB Type</th>
+                <th>Instance Name</th>
+                <th>Backup Start Time</th>
+                <th>Backup End Time</th>
+                <th>S3 URI</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for backup in backups %}
+            <tr>
+                <td>{{ backup.id }}</td>
+                <td>{{ backup.db_type }}</td>
+                <td>{{ backup.instance_name }}</td>
+                <td>{{ backup.backup_start_time }}</td>
+                <td>{{ backup.backup_end_time }}</td>
+                <td>{{ backup.s3_uri }} </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

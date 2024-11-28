@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-backup-log-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-backup-log-data
+  template:
+    metadata:
+      labels:
+        app: mysql-backup-log-data
+    spec:
+      containers:
+      - name: mysql-backup-log-data
+        image: mysql:5.7
+        ports:
+        - containerPort: 3309
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "chuashihong"

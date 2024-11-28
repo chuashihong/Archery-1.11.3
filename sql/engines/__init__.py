@@ -116,7 +116,6 @@ class EngineBase:
     def get_group_tables_by_db(self, db_name, **kwargs):
         """获取首字符分组的table列表，返回一个dict"""
         return dict()
-
     def get_table_meta_data(self, db_name, tb_name, **kwargs):
         """获取表格元信息"""
         return dict()

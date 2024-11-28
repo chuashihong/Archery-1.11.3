@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h1>Restore Management</h1>
+
+    <form method="post" id="restore-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="instance">Instance:</label>
+            <select id="instance" name="instance" class="form-control">
+                <option value="">-- Select an Instance --</option>
+                <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
+                <optgroup id="optgroup-mongo" label="MongoDB"></optgroup>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="db_name">Database:</label>
+            <select id="db_name" name="db_name" class="form-control">
+                <option value="">-- Select a Database --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="table_name">Table:</label>
+            <select id="table_name" name="table_name" class="form-control">
+                <option value="">-- Select a Table --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="restore_time">Restore Time:</label>
+            <input type="datetime-local" id="restore_time" name="restore_time" class="form-control">
+        </div>
+    
+        <div class="form-group">
+            <label for="unzip_password">Unzip Password:</label>
+            <input type="text" id="unzip_password" name="unzip_password" class="form-control">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit Restore Request</button>
+    </form>
+</div>
+<!-- Table for restore requests-->
+<div class="container">
+    <h2>Pending Restore Requests</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Instance</th>
+                <th>Restore Time</th>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in pending_requests %}
+            <tr>
+                <td>{{ request.id }}</td>
+                <td>{{ request.instance.instance_name }}</td>
+                <td>{{ request.restore_time }}</td>
+                <td>{{ request.db_name }}</td>
+                <td>{{ request.table_name }}</td>
+                <td>
+                    <button class="btn btn-success btn-sm" onclick="showExecuteModal({{ request.id }})">Execute</button>
+                    <form method="post" style="display:inline-block;">
+                        {% csrf_token %}
+                        <input type="hidden" name="request_id" value="{{ request.id }}">
+                        <button type="submit" name="reject_request" class="btn btn-danger btn-sm">Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Rejected Restore Requests</h2>
+    <!-- <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Instance</th>
+                <th>Restore Time</th>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in rejected_requests %}
+            <tr>
+                <td>{{ request.id }}</td>
+                <td>{{ request.instance.instance_name }}</td>
+                <td>{{ request.restore_time }}</td>
+                <td>{{ request.db_name }}</td>
+                <td>{{ request.table_name }}</td>
+                <td>{{ request.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table> -->
+    <table class="table table-striped" id="pending-requests-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Instance</th>
+                <th>Restore Time</th>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        
+    </table>
+
+    <h2>Closed Restore Requests</h2>
+    <table class="table table-striped" id="closed-requests-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Instance</th>
+                <th>Restore Time</th>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Status</th>
+                <th>Outcome</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in closed_requests %}
+            <tr>
+                <td>{{ request.id }}</td>
+                <td>{{ request.instance.instance_name }}</td>
+                <td>{{ request.restore_time }}</td>
+                <td>{{ request.db_name }}</td>
+                <td>{{ request.table_name }}</td>
+                <td>{{ request.status }}</td>
+                <td>{{ request.outcome }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<!--Modal for action-->
+<div class="modal fade" id="executeModal" tabindex="-1" role="dialog" aria-labelledby="executeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="executeModalLabel">Restore Details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Instance:</strong> <span id="modalInstance"></span></p>
+                <p><strong>Database:</strong> <span id="modalDatabase"></span></p>
+                <p><strong>Table:</strong> <span id="modalTable"></span></p>
+                <p><strong>Restore Time:</strong> <span id="modalRestoreTime"></span></p>
+                <pre id="modalCommand"></pre>
+            </div>
+            <div class="modal-footer">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" id="modalRequestId" name="request_id">
+                    <button type="submit" name="execute_request" class="btn btn-primary">Confirm & Execute</button>
+                </form>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script>
+    
+    $(document).ready(function () {
+        initializeInstanceList(); // Load instances dynamically
+        listen_create_restore_request();
+        // Function to load database list dynamically
+        $('#instance').change(function () {
+            database_list();
+        });
+
+        // Function to load table list dynamically
+        $('#db_name').change(function () {
+            table_list();
+        });
+    });
+    
+    function load_pending_restore_requests() {
+        $.ajax({
+            type: 'GET',
+            url: '/restore/request/pending/',
+            success: function (response) {
+                if (response.status === "success") {
+                    $('#pending-requests-table tbody').empty();
+                    response.requests.forEach(function (request) {
+                        $('#pending-requests-table tbody').append(`
+                            <tr>
+                                <td>${request.id}</td>
+                                <td>${request.instance_name}</td>
+                                <td>${request.restore_time}</td>
+                                <td>${request.db_name}</td>
+                                <td>${request.table_name}</td>
+                                <td>
+                                    <button class="btn btn-success btn-sm" onclick="showExecuteModal(${request.id})">Execute</button>
+                                    <button class="btn btn-danger btn-sm" onclick="rejectRestoreRequest(${request.id})">Reject</button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function () {
+                alert('Error loading pending restore requests');
+            }
+        });
+    }
+
+
+    function listen_create_restore_request() {
+        // Handle form submission for creating a restore request
+        $('#restore-form').on('submit', function (e) {
+            e.preventDefault(); // Prevent the default form submission
+
+            // Gather form data
+            var formData = {
+                instance_id: $('#instance').val(),
+                db_name: $('#db_name').val(),
+                table_name: $('#table_name').val(),
+                restore_time: $('#restore_time').val(),
+                unzip_password: $('#unzip_password').val(),
+                csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()  // Django CSRF token
+            };
+            console.log("Form data:", formData);
+
+            // AJAX request to submit the form
+            $.ajax({
+                type: 'POST',
+                url: '/restore/request/create/',  // Django view to handle restore request
+                data: formData,
+                success: function (response) {
+                    if (response.status === "success") {
+                        // Show success message and refresh pending requests
+                        alert('Restore request submitted successfully');
+                        load_pending_restore_requests(); // Reload the pending requests
+                    } else {
+                        // Display error message from the server
+                        alert(`Error: ${response.message}`);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error submitting restore request:", error);
+                    alert('An error occurred while submitting the restore request');
+                }
+            });
+        });
+    }
+
+    function showExecuteModal(requestId) {
+        $.ajax({
+            type: "get",
+            url: `/restore/details/${requestId}/`,
+            success: function (data) {
+                $("#modalInstance").text(data.instance_name);
+                $("#modalDatabase").text(data.db_name);
+                $("#modalTable").text(data.table_name);
+                $("#modalRestoreTime").text(data.restore_time);
+                $("#modalCommand").text(data.command_preview);
+                $("#modalRequestId").val(requestId);
+                $("#executeModal").modal("show");
+            },
+            error: function () {
+                alert("Failed to load restore details.");
+            }
+        });
+    }
+
+    // Function to load databases based on the selected instance
+    function database_list() {
+        let db_type = "";
+        if ($("#instance").val()) {
+            db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+        }
+
+        showLoading(); // Show loading spinner
+
+        // AJAX request to retrieve databases
+        $.ajax({
+            type: "post",
+            url: "/instance/database/list/",
+            data: {
+                instance_id: $("#instance").val(),
+                db_type: db_type,
+                csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val(),
+            },
+            success: function (data) {
+                hideLoading(); // Hide loading spinner
+                if (data.status === 0 && Array.isArray(data.rows)) {
+                    $("#db_name").empty();
+                    data.rows.forEach(function (db) {
+                        $("#db_name").append(`<option value="${db.db_name}">${db.db_name}</option>`);
+                    });
+                } else {
+                    alert("No databases found or an error occurred.");
+                }
+            },
+            error: function () {
+                hideLoading();
+                alert("Error loading databases.");
+            }
+        });
+    }
+
+    // Function to load table list based on selected database
+    function table_list() {
+        let db_type = $("#instance")[0].options[$("#instance")[0].selectedIndex].getAttribute("instance-type");
+        let db_name = $("#db_name").val();
+        let instance_name = $("#instance").find(":selected").attr("instance-name");
+
+        showLoading(); // Show loading spinner
+
+        // AJAX request to retrieve tables
+        $.ajax({
+            type: "get",
+            url: "/data_dictionary/table_list/",
+            dataType: "json",
+            data: {
+                instance_name: instance_name,
+                db_name: db_name,
+                db_type: db_type
+            },
+            success: function (data) {
+                hideLoading(); // Hide loading spinner
+                if (data.status === 0 && typeof data.data === "object") {
+                    $("#table_name").empty();
+                    Object.keys(data.data).forEach(function (categoryKey) {
+                        const tables = data.data[categoryKey];
+                        if (Array.isArray(tables)) {
+                            const optgroup = $('<optgroup>').attr("label", categoryKey);
+                            tables.forEach(function (table) {
+                                const tableName = table[0];
+                                optgroup.append(`<option value="${tableName}">${tableName}</option>`);
+                            });
+                            $("#table_name").append(optgroup);
+                        }
+                    });
+                } else {
+                    alert("No tables found or an error occurred.");
+                }
+            },
+            error: function () {
+                hideLoading();
+                alert("Error loading tables.");
+            }
+        });
+    }
+    // Function to initialize the instance list
+    function initializeInstanceList() {
+        $.ajax({
+            type: "get",
+            url: "/group/user_all_instances/",
+            dataType: "json",
+            success: function (data) {
+                let instances = data['data'];
+                $("optgroup[id^='optgroup']").empty(); // Clear existing options
+                const supportDb = ['mysql', 'mongo']; // Supported DB types
+                for (let instance of instances) {
+                    let instanceOption = `<option value="${instance.id}" instance-name="${instance.instance_name}" instance-id="${instance.id}" instance-type="${instance.db_type}">${instance.instance_name}</option>`;
+                    if (supportDb.includes(instance.db_type)) {
+                        $("#optgroup-" + instance.db_type).append(instanceOption);
+                    }
+                }
+                $('#instance').selectpicker('refresh'); // Refresh UI
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                alert("Error loading instances: " + errorThrown);
+            }
+        });
+    }
+
+
+    // Simulated loading spinner functions
+    function showLoading() {
+        console.log("Loading...");
+    }
+
+    function hideLoading() {
+        console.log("Done loading.");
+    }
+</script>
+{% endblock %}

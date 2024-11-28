@@ -5,8 +5,8 @@ import traceback
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponseRedirect, FileResponse, Http404, JsonResponse, HttpResponse
+from django.shortcuts import redirect, render, get_object_or_404
+from django.http import HttpResponseRedirect, FileResponse, Http404
 from django.urls import reverse
 
 from django.conf import settings
@@ -15,8 +15,6 @@ from sql.engines import get_engine, engine_map
 from common.utils.permission import superuser_required
 from common.utils.convert import Convert
 from sql.utils.tasks import task_info
-from . forms import BackupSettingsForm  # Import the form for backup settings
-from .backup_utils import perform_backup, list_backup_files, download_backup_file, save_backup_settings 
 
 from .models import (
     Users,
@@ -43,7 +41,17 @@ from sql.utils.sql_review import (
 )
 from common.utils.const import Const, WorkflowType, WorkflowAction
 from sql.utils.resource_group import user_groups, user_instances
-
+from .models import IncBackupRecord, RestoreRequest
+from .forms import RestoreRequestForm
+from .backup_utils import get_all_backups, get_backup_summary, fetch_and_store_backup_records
+from .restore_utils import (
+    generate_restore_command,
+    execute_restore_plan,
+    find_backup,
+    approve_restore_request,
+    reject_restore_request,
+    notify_user
+)
 import logging
 
 logger = logging.getLogger("default")
@@ -53,7 +61,58 @@ def index(request):
     index_path_url = SysConfig().get("index_path_url", "sqlworkflow")
     return HttpResponseRedirect(f"/{index_path_url.strip('/')}/")
 
+def backup(request):
+    """
+    Backup management view. Displays all backups and a summary.
+    """
+    # fetch the info from database
+    fetch_and_store_backup_records()
+    backups = get_all_backups()
+    summary = get_backup_summary()
+    return render(request, "backup_management.html", {
+        'backups': backups,
+        'summary': summary,
+    })
 
+def restore(request):
+    if request.method == "POST":
+        if "submit_request" in request.POST:
+            form = RestoreRequestForm(request.POST)
+            if form.is_valid():
+                restore_request = form.save(commit=False)
+                backup = find_backup(restore_request.instance.instance_name, restore_request.restore_time)
+                if backup:
+                    restore_request.s3_bucket_file_path = backup.s3_bucket_file_path
+                    restore_request.save()
+                else:
+                    form.add_error(None, "No matching backup found.")
+            return redirect('restore')
+        elif "approve_request" in request.POST:
+            request_id = request.POST.get('request_id')
+            restore_request = approve_restore_request(request_id)
+            restore_script = generate_restore_command(restore_request)
+            return render(request, 'restore_management.html', {
+                'restore_requests': RestoreRequest.objects.all(),
+                'preview_script': restore_script,
+                'confirm_request_id': request_id,
+            })
+        elif "confirm_request" in request.POST:
+            request_id = request.POST.get('request_id')
+            restore_request = RestoreRequest.objects.get(id=request_id)
+            outcome = execute_restore_plan(restore_request)
+            notify_user(restore_request, notification_function=send_email)
+            return render(request, 'restore_management.html', {
+                'restore_requests': RestoreRequest.objects.all(),
+                'message': f"Restore completed with status: {restore_request.status}. Outcome: {restore_request.outcome}",
+            })
+    else:
+        form = RestoreRequestForm()
+        restore_requests = RestoreRequest.objects.all()
+        return render(request, 'restore_management.html', {
+            'form': form,
+            'restore_requests': restore_requests,
+        })
+    
 def login(request):
     """登录页面"""
     if request.user and request.user.is_authenticated:
@@ -112,70 +171,13 @@ def twofa(request):
         },
     )
 
-# Dummy function to store settings (you should persist this to a database or config file)
-BACKUP_SETTINGS = {}
-def backup_dashboard(request):
-    """View for the backup dashboard."""
-    # Retrieve backup files to show in the table
-    # backup_files = list_backup_files()
-    return render(request, 'backup.html', {
-        # 'backup_files': backup_files
-    })
+def backup_manual(request):
+    """View for the manual backup settings."""
+    return render(request, 'backup_manual.html')
 
-def backup_settings(request):
-    """View for saving backup settings."""
-    if request.method == 'POST':
-        frequency = request.POST.get('frequency')
-        time = request.POST.get('time')
-        destination = request.POST.get('destination')
-
-        # Store the settings (you may want to persist these settings in a file or DB)
-        BACKUP_SETTINGS['frequency'] = frequency
-        BACKUP_SETTINGS['time'] = time
-        BACKUP_SETTINGS['destination'] = destination
-
-        # Optionally, save the settings to a config file or database
-        save_backup_settings(BACKUP_SETTINGS)
-
-        return redirect('backup_dashboard')  # Redirect back to the dashboard
-
-    return render(request, 'backup/backup_settings.html')
-
-def manual_backup(request):
-    """Trigger a manual backup of the selected database or table."""
-    
-    if request.method == 'POST':
-        backup_type = request.POST.get("backup_type")
-        instance_id = request.POST.get("instance_id", 0)
-        db_name = request.POST.get("db_name")
-        table_name = request.POST.get("table_name")
-        try:
-            instance = user_instances(request.user, db_type=["mysql", "mongo"]).get(
-                id=instance_id
-            )
-        except Instance.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Instance not found.'}, status=404)
-        
-        # Perform the backup, optionally including the table name
-        success, message = perform_backup(backup_type, instance.db_type, db_name, table_name)
-        return JsonResponse({'success': success, 'message': message})
-
-    return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
-
-def backup_files(request):
-    """View existing backup files and allow download."""
-    backup_files = list_backup_files()
-    return render(request, 'backup/backup_files.html', {'backup_files': backup_files})
-
-def download_backup(request, file_name):
-    """Download the selected backup file."""
-    file_path = download_backup_file(file_name)
-    if os.path.exists(file_path):
-        with open(file_path, 'rb') as f:
-            response = HttpResponse(f.read(), content_type="application/octet-stream")
-            response['Content-Disposition'] = f'attachment; filename={file_name}'
-            return response
-    return JsonResponse({'error': 'File not found'}, status=404)
+def backup_auto(request):
+    """View for the auto backup settings."""
+    return render(request, 'backup_auto.html')
 
 @permission_required("sql.menu_dashboard", raise_exception=True)
 def dashboard(request):

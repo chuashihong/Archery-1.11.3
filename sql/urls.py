@@ -23,17 +23,28 @@ from sql import (
     archiver,
     audit_log,
     user,
+    backup_utils,
+    restore_utils
 )
 from sql.utils import tasks
 from common.utils import ding_api
-
 urlpatterns = [
     path("", views.index),
-    path('backup/', views.backup_dashboard, name='backup_dashboard'),
-    path('backup/settings/', views.backup_settings, name='backup_settings'),
-    path('backup/manual/', views.manual_backup, name='manual_backup'),
-    path('backup/files/', views.backup_files, name='backup_files'),
-    path('backup/download/<str:file_name>/', views.download_backup, name='download_backup'),
+    path('backup/', views.backup, name='backup'),
+    path('restore/', views.restore, name='restore'),
+    path('restore/request/create/', restore_utils.restore_request_create, name='restore_request_create'),
+    path('restore/request/pending/', restore_utils.get_pending_restore_requests , name='restore_request_pending'),
+    path('backup/manual', views.backup_manual, name='backup_dashboard'),
+    path('backup/auto', views.backup_auto, name='backup_auto'),
+    path('backup/automated/create/', backup_utils.create_backup_routine, name='create_backup_routine'),
+    path('backup/automated/delete/<int:id>/', backup_utils.delete_backup_routine, name='delete_backup_routine'),
+    path('backup/automated/toggle/<int:id>/', backup_utils.toggle_backup_routine, name='toggle_backup_routine'),
+    path('backup/manual/', backup_utils.perform_manual_backup, name='backup_manual'),
+    path('backup/files/', backup_utils.list_manual_backup_files, name='backup_files'),
+    path('backup/download/<str:file_name>/', backup_utils.download_backup, kwargs={'is_auto': False}, name='download_backup'),
+    path('backup/download/auto/<str:file_name>/', backup_utils.download_backup, kwargs={'is_auto': True}, name='download_auto_backup'),
+    path('api/backup/routines/', backup_utils.api_backup_routines, name='api_backup_routines'),
+    path('api/backup/history/', backup_utils.list_auto_backup_files, name='api_backup_history'),
     path("jsi18n/", JavaScriptCatalog.as_view(), name="javascript-catalog"),
     path("index/", views.index),
     path("login/", views.login, name="login"),
@@ -123,6 +134,7 @@ urlpatterns = [
     path("data_dictionary/", views.data_dictionary),
     path("data_dictionary/table_list/", data_dictionary.table_list),
     path("data_dictionary/table_info/", data_dictionary.table_info),
+    path("data_dictionary/collection_info/", data_dictionary.get_collection_info),
     path("data_dictionary/export/", data_dictionary.export),
     path("param/list/", instance.param_list),
     path("param/history/", instance.param_history),

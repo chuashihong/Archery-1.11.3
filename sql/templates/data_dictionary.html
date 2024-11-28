@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-
+{% load static %}
+<link href="{% static 'css/tailwind.min.css' %}" rel="stylesheet">
 {% block content %}
     <!-- 自定义操作按钮-->
     <div class="form-group ">
@@ -13,6 +14,7 @@
                         <optgroup id="optgroup-mysql" label="MySQL"></optgroup>
                         <optgroup id="optgroup-mssql" label="MsSQL"></optgroup>
                         <optgroup id="optgroup-oracle" label="Oracle"></optgroup>
+                        <optgroup id="optgroup-mongo" label="Mongo"></optgroup>
                     </select>
                 </div>
                 <div class="form-group">
@@ -275,6 +277,74 @@
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
     </div><!-- /.modal -->
+
+    <!-- Modal for MongoDB collection metadata -->
+    <div class="modal fade" id="mongoCollectionModal" tabindex="-1" aria-labelledby="mongoCollectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-blue-500 text-white">
+                    <h5 class="modal-title" id="mongoCollectionModalLabel">Collection Metadata</h5>
+                    <button type="button" class="close" data-dismiss="modal"><span
+                        aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                </div>
+                <div class="modal-body" id="modal-body-mongo">
+                    <!-- Collection Stats -->
+                    <div class="panel panel-default mb-4">
+                        <div class="panel-heading bg-blue-100 p-2 rounded">
+                            <h6>Collection Details</h6>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table id="meta_data" class="table table-striped table-hover">
+                                    <tbody>
+                                        <tr>
+                                            <th>Storage Size</th>
+                                            <td id="storage_size"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Document Count</th>
+                                            <td id="document_count"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Avg Document Size</th>
+                                            <td id="avg_document_size"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Index Count</th>
+                                            <td id="index_count"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Total Index Size</th>
+                                            <td id="total_index_size"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Index Information -->
+                    <div class="panel panel-default mb-4">
+                        <div class="panel-heading bg-yellow-100 p-2 rounded">
+                            <h6>Index Information</h6>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table id="index-list-oracle" class="table table-striped table-hover">
+                                    <thead>
+                                        <tr><th>Index</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Index rows will be dynamically added here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
 {% endblock content %}
 {% block js %}
     {% load static %}
@@ -290,7 +360,7 @@
                     url: "/group/user_all_instances/",
                     dataType: "json",
                     data: {
-                        db_type: ['mysql', 'mssql', 'oracle']
+                        db_type: ['mysql', 'mssql', 'oracle', 'mongo']
                     },
                     complete: function () {
                         if ($('#instance_name').val()) {
@@ -314,6 +384,8 @@
                                     $("#optgroup-mssql").append(instance_name);
                                 } else if (result[i]['db_type'] === 'oracle') {
                                     $("#optgroup-oracle").append(instance_name);
+                                } else if (result[i]['db_type'] === 'mongo') {
+                                    $("#optgroup-mongo").append(instance_name);
                                 }
                             }
                             $('#instance_name').selectpicker('render');
@@ -438,122 +510,255 @@
             $("#modal-body-" + db_type).show();
         }
 
-        // 展示表信息
-        function showTableInfo(ins_name, db_name, tb_name) {
-            // console.log(ins_name, db_name, tb_name);
-            var inst_db_type_ind = instance_result.findIndex((value)=>value.instance_name==ins_name);
-            var inst_db_type = instance_result[inst_db_type_ind]['db_type'];
+    // 展示表信息
+    function showTableInfo(ins_name, db_name, tb_name) {
+        console.log("Showing table/collection info for:", ins_name, db_name, tb_name);
 
-            $.ajax({
-                type: "get",
-                url: "/data_dictionary/table_info/",
-                dataType: "json",
-                data: {
-                    instance_name: ins_name,
-                    db_name: db_name,
-                    tb_name: tb_name,
-                    db_type: inst_db_type
-                },
-                success: function (data) {
-                    if (data.status === 0) {
-                        var result = data.data;
-                        if (inst_db_type === 'mysql') {
-                            showModalBody('mysql');
-                            //console.log("hide_oracle");
+        var inst_db_type_ind = instance_result.findIndex((value) => value.instance_name == ins_name);
+        var inst_db_type = instance_result[inst_db_type_ind]['db_type'];
+        var url = "/data_dictionary/table_info/";
 
-                            $("#create-table-sql").bootstrapTable('destroy').bootstrapTable({
-                                data: result['create_sql'],
-                                columns: [{
-                                    field: 1,
-                                    formatter: function (value, row, index) {
-                                        var sql = window.sqlFormatter.format(value);
-                                        //替换所有的换行符
-                                        sql = sql.replace(/\r\n/g, "<br>");
-                                        sql = sql.replace(/\n/g, "<br>");
-                                        //替换所有的空格
-                                        sql = sql.replace(/\s/g, " ");
-                                        return sql;
-
-                                    }
-                                }],
-                                locale: 'zh-CN'
-                            });
-                        } else if (inst_db_type === 'oracle') {
-                            showModalBody('oracle');
-                            //console.log("hide_mysql");
-                        } else if (inst_db_type === 'mssql') {
-                            showModalBody('mssql');
-                        }
-                        var meta_data_columns = result['meta_data']['column_list'];
-                        var meta_data_values = result['meta_data']['rows'];
-                        for (var i = 0; i < meta_data_columns.length; i++) {
-                            //console.log(meta_data_columns[i], meta_data_values[i]);
-                            $('#meta_data #' + meta_data_columns[i]).text(meta_data_values[i])
-                        }
-                        var columns_field = [];
-                        $.each(result['desc']['column_list'], function (i, column) {
-                            columns_field.push({
-                                "field": i,
-                                "title": column,
-                                "sortable": true
-                            });
-                        });
-                        $("#field-list-" + inst_db_type).bootstrapTable('destroy').bootstrapTable({
-                            escape: true,
-                            data: result['desc']['rows'],
-                            columns: columns_field,
-                            showExport: true,
-                            exportDataType: "all",
-                            exportTypes: ['json', 'sql', 'csv', 'txt', 'xml', 'xlsx'],
-                            exportOptions: {
-                                //ignoreColumn: [0],  //忽略某些列的索引数组
-                                fileName: 'field'  //文件名称设置
-                            },
-                            showColumns: true,
-                            showToggle: true,
-                            clickToSelect: true,
-                            striped: true,
-                            pagination: true,
-                            pageSize: 30,
-                            pageList: [30, 50, 100, 500, 1000],
-                            locale: 'zh-CN'
-                        });
-                        var columns_index = [];
-                        $.each(result['index']['column_list'], function (i, column) {
-                            columns_index.push({
-                                "field": i,
-                                "title": column,
-                                "sortable": true
-                            });
-                        });
-                        $("#index-list-" + inst_db_type).bootstrapTable('destroy').bootstrapTable({
-                            escape: true,
-                            data: result['index']['rows'],
-                            columns: columns_index,
-                            showExport: false,
-                            showColumns: false,
-                            showToggle: false,
-                            clickToSelect: true,
-                            striped: true,
-                            pagination: true,
-                            pageSize: 30,
-                            pageList: [30, 50, 100, 500, 1000],
-                            locale: 'zh-CN'
-                        });
-
-
-                        //console.log("desc_rows" ,result['desc']['rows'])
-                        $('#showModal').modal('show');
-                    } else {
-                        alert(data.msg);
-                    }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    alert(errorThrown);
-                },
-                complete: function () {
-                }
-            });
+        if (inst_db_type === 'mongo') {
+            // For MongoDB, fetch collection info and show it in the modal
+            fetchCollectionInfo(ins_name, db_name, tb_name);
+            return;
         }
+
+        // For non-MongoDB databases (e.g., MySQL, Oracle, MSSQL)
+        $.ajax({
+            type: "get",
+            url: url,
+            dataType: "json",
+            data: {
+                instance_name: ins_name,
+                db_name: db_name,
+                tb_name: tb_name,
+                db_type: inst_db_type
+            },
+            success: function (data) {
+                if (data.status === 0) {
+                    var result = data.data;
+                    showModalBody(inst_db_type);
+
+                    if (inst_db_type === 'mysql') {
+                        $("#create-table-sql").bootstrapTable('destroy').bootstrapTable({
+                            data: result['create_sql'],
+                            columns: [{
+                                field: 1,
+                                formatter: function (value) {
+                                    var sql = window.sqlFormatter.format(value);
+                                    return sql.replace(/\s/g, " ").replace(/\r\n|\n/g, "<br>");
+                                }
+                            }],
+                            locale: 'zh-CN'
+                        });
+                    }
+
+                    var meta_data_columns = result['meta_data']['column_list'];
+                    var meta_data_values = result['meta_data']['rows'];
+                    meta_data_columns.forEach((column, i) => {
+                        $('#meta_data #' + column).text(meta_data_values[i]);
+                    });
+
+                    var columns_field = result['desc']['column_list'].map((column, i) => ({
+                        field: i,
+                        title: column,
+                        sortable: true
+                    }));
+                    $("#field-list-" + inst_db_type).bootstrapTable('destroy').bootstrapTable({
+                        escape: true,
+                        data: result['desc']['rows'],
+                        columns: columns_field,
+                        pagination: true,
+                        pageSize: 30,
+                        locale: 'zh-CN'
+                    });
+
+                    var columns_index = result['index']['column_list'].map((column, i) => ({
+                        field: i,
+                        title: column,
+                        sortable: true
+                    }));
+                    $("#index-list-" + inst_db_type).bootstrapTable('destroy').bootstrapTable({
+                        escape: true,
+                        data: result['index']['rows'],
+                        columns: columns_index,
+                        pagination: true,
+                        pageSize: 30,
+                        locale: 'zh-CN'
+                    });
+
+                    $('#showModal').modal('show');
+                } else {
+                    alert(data.msg);
+                }
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                alert(errorThrown);
+            }
+        });
+    }
+
+    
+    function fetchCollectionInfo(instance_name, db_name, collection_name) {
+        console.log("Fetching collection info for", instance_name, db_name, collection_name);
+        
+        $.ajax({
+            type: "get",
+            url: "/data_dictionary/collection_info/",
+            data: {
+                instance_name: instance_name,
+                db_name: db_name,
+                collection_name: collection_name
+            },
+            success: function (response) {
+                console.log("Collection info response:", response);
+                response = response.data;
+
+                // Populate basic collection stats
+                $("#storage_size").text(response.storage_size + " bytes");
+                $("#document_count").text(response.document_count);
+                $("#avg_document_size").text(response.avg_document_size + " bytes");
+                $("#index_count").text(response.index_count);
+                $("#total_index_size").text(response.total_index_size + " bytes");
+                // Populate field types with updated data type names
+                const dataTypeMapping = {
+                    "str": "String",
+                    "datetime": "Date",
+                    "bool": "Boolean",
+                    "list": "Array",
+                    "dict": "Object",
+                    "int": "Integer",
+                    "float": "Float",
+                    "ObjectId": "ObjectId"  // Keep as-is
+                };
+                // Populate field types
+                let fieldTypesTable = $("#field-types-table tbody");
+                fieldTypesTable.empty(); // Clear previous data
+                for (const [field, dataType] of Object.entries(response.field_types)) {
+                    let friendlyDataType = dataTypeMapping[dataType] || dataType;
+                    fieldTypesTable.append(`
+                        <tr>
+                            <td>${field}</td>
+                            <td>${friendlyDataType}</td>
+                        </tr>
+                    `);
+                }
+
+                // Clear previous document examples
+                let documentExamples = $("#document-examples");
+                documentExamples.empty();
+                // Populate example documents
+                response.sample_documents.forEach((doc, index) => {
+                    let documentCard = `
+                    <div class="border border-gray-200 shadow-lg rounded-lg p-4 bg-white">
+                        <h6 class="text-lg font-semibold mb-3">Document #${index + 1}</h6>
+                        <ul class="space-y-2">
+                `;
+
+                    for (const [field, value] of Object.entries(doc)) {
+                        let fieldType = typeof value;
+                        let valueDisplay = JSON.stringify(value);
+                        // Collapse arrays or embedded documents with more than 5 items
+                        if (Array.isArray(value) && value.length > 5) {
+                            valueDisplay = `
+                                <span class="text-gray-600">Array (${value.length} items)</span>
+                                <button onclick="toggleCollapse('${field + index}')" class="text-blue-500 ml-2">Show More</button>
+                                <div id="${field + index}" class="hidden mt-2">
+                                    ${JSON.stringify(value, null, 2)}
+                                </div>
+                            `;
+                        } else if (fieldType === "object" && value !== null && Object.keys(value).length > 5) {
+                            valueDisplay = `
+                                <span class="text-gray-600">Array (${Object.keys(value).length} fields)</span>
+                                <button onclick="toggleCollapse('${field + index}')" class="text-blue-500 ml-2">Show More</button>
+                                <div id="${field + index}" class="hidden mt-2">
+                                    ${JSON.stringify(value, null, 2)}
+                                </div>
+                            `;
+                        } else {
+                            valueDisplay = `<span class="text-gray-600">${valueDisplay}</span>`;
+                        }
+
+                        documentCard += `
+                        <li>
+                            <div class="flex items-start space-x-2">
+                                <span class="font-semibold text-gray-700">${field}:</span>
+                                <div class="flex flex-col">
+                                    <span>${valueDisplay}</span>
+                                </div>
+                            </div>
+                        </li>
+                    `;
+                    }
+
+                    documentCard += `
+                        </ul>
+                    </div>
+                `;
+
+                    documentExamples.append(documentCard);
+                });
+
+                // Populate index information
+                // let indexListTable = $("#index-list-oracle tbody");
+                // indexListTable.empty(); // Clear previous data
+                // response.indexes.forEach(index => {
+                //     let indexRow = `<tr><td>${JSON.stringify(index)}</td></tr>`;
+                //     indexListTable.append(indexRow);
+                // });
+                // Populate index information in a user-friendly format
+                let indexListTable = $("#index-list-oracle tbody");
+                indexListTable.empty();
+                response.indexes.forEach(index => {
+                    let indexDisplay = `
+                    <div class="border border-gray-200 shadow-lg rounded-lg p-4 bg-white mb-4">
+                        <h6 class="text-lg font-semibold mb-3">Index: ${index.name}</h6>
+                        <ul class="space-y-2">
+                            <li><strong>Version:</strong> ${index.v}</li>
+                            <li><strong>Fields:</strong> ${Object.entries(index.key).map(([field, order]) => `${field} (${order === 1 ? 'Ascending' : order === -1 ? 'Descending' : order})`).join(", ")}</li>
+                `;
+
+                    if (index.default_language) {
+                        indexDisplay += `<li><strong>Default Language:</strong> ${index.default_language}</li>`;
+                    }
+
+                    if (index.language_override) {
+                        indexDisplay += `<li><strong>Language Override Field:</strong> ${index.language_override}</li>`;
+                    }
+
+                    if (index.weights) {
+                        indexDisplay += `
+                        <li><strong>Field Weights:</strong> ${Object.entries(index.weights).map(([field, weight]) => `${field}: ${weight}`).join(", ")}</li>
+                    `;
+                    }
+
+                    if (index.textIndexVersion) {
+                        indexDisplay += `<li><strong>Text Index Version:</strong> ${index.textIndexVersion}</li>`;
+                    }
+
+                    indexDisplay += `</ul></div>`;
+                    indexListTable.append(indexDisplay);
+                });
+
+
+                // Open the modal to display data
+                $("#mongoCollectionModal").modal("show");
+            },
+            error: function (xhr, status, error) {
+                console.log("Error fetching collection info:", error);
+            }
+        });
+    }
+    // Toggle visibility for collapsible content
+    function toggleCollapse(elementId) {
+        const element = document.getElementById(elementId);
+        if (element.classList.contains("hidden")) {
+            element.classList.remove("hidden");
+        } else {
+            element.classList.add("hidden");
+        }
+    }
+
     </script>
 {% endblock %}
