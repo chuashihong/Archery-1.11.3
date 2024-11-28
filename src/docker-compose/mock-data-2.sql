@@ -1,8 +1,135 @@
+-- Insert mock data for database
 -- Drop database if it exists
 DROP DATABASE IF EXISTS `hello`;
+DROP DATABASE IF EXISTS `db-name-1`;
+DROP DATABASE IF EXISTS `db-name-2`;
+DROP DATABASE IF EXISTS `db-name-3`;
+DROP DATABASE IF EXISTS `db-name-4`;
+DROP DATABASE IF EXISTS `db-name-5`;
 
 -- Create the database schema and users
 CREATE DATABASE `hello`;
+CREATE DATABASE `db-name-1`;
+CREATE DATABASE `db-name-2`;
+CREATE DATABASE `db-name-3`;
+CREATE DATABASE `db-name-4`;
+CREATE DATABASE `db-name-5`;
+
+USE `db-name-1`;
+
+CREATE TABLE `users` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `username` VARCHAR(50) NOT NULL,
+    `email` VARCHAR(100) UNIQUE NOT NULL,
+    `password` VARCHAR(255) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `roles` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `role_name` VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE `user_roles` (
+    `user_id` INT NOT NULL,
+    `role_id` INT NOT NULL,
+    PRIMARY KEY (`user_id`, `role_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE
+);
+
+USE `db-name-2`;
+
+CREATE TABLE `products` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL,
+    `description` TEXT,
+    `price` DECIMAL(10, 2) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `customers` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `first_name` VARCHAR(50) NOT NULL,
+    `last_name` VARCHAR(50) NOT NULL,
+    `email` VARCHAR(100) UNIQUE NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `orders` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `customer_id` INT NOT NULL,
+    `order_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`) ON DELETE CASCADE
+);
+
+USE `db-name-3`;
+
+CREATE TABLE `posts` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) NOT NULL,
+    `content` TEXT NOT NULL,
+    `author` VARCHAR(100) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `comments` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `post_id` INT NOT NULL,
+    `comment_text` TEXT NOT NULL,
+    `commenter` VARCHAR(100),
+    `comment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE
+);
+USE `db-name-4`;
+
+CREATE TABLE `items` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `item_name` VARCHAR(100) NOT NULL,
+    `quantity` INT NOT NULL,
+    `price_per_unit` DECIMAL(10, 2) NOT NULL,
+    `last_updated` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `suppliers` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `supplier_name` VARCHAR(100) NOT NULL,
+    `contact_email` VARCHAR(100) UNIQUE
+);
+
+CREATE TABLE `item_suppliers` (
+    `item_id` INT NOT NULL,
+    `supplier_id` INT NOT NULL,
+    PRIMARY KEY (`item_id`, `supplier_id`),
+    FOREIGN KEY (`item_id`) REFERENCES `items`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`supplier_id`) REFERENCES `suppliers`(`id`) ON DELETE CASCADE
+);
+USE `db-name-5`;
+
+CREATE TABLE `courses` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `course_name` VARCHAR(100) NOT NULL,
+    `description` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `students` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `first_name` VARCHAR(50) NOT NULL,
+    `last_name` VARCHAR(50) NOT NULL,
+    `email` VARCHAR(100) UNIQUE NOT NULL,
+    `enrollment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE `enrollments` (
+    `student_id` INT NOT NULL,
+    `course_id` INT NOT NULL,
+    `enrollment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`student_id`, `course_id`),
+    FOREIGN KEY (`student_id`) REFERENCES `students`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`course_id`) REFERENCES `courses`(`id`) ON DELETE CASCADE
+);
+
 USE `hello`;
 -- Drop and recreate Users
 DROP USER IF EXISTS 'network_admin'@'%';

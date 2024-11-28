@@ -5,6 +5,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from mirage import fields
 from django.utils.translation import gettext as _
+from django.utils.timezone import now
 from mirage.crypto import Crypto
 
 from common.utils.const import WorkflowStatus, WorkflowType, WorkflowAction
@@ -1336,3 +1337,46 @@ class AuditEntry(models.Model):
         return "{0} - {1} - {2} - {3} - {4}".format(
             self.user_id, self.user_name, self.extra_info, self.action, self.action_time
         )
+    
+class IncBackupRecord(models.Model):
+    db_type = models.CharField(max_length=50)
+    instance_name = models.CharField(max_length=100)
+    backup_start_time = models.DateTimeField()
+    backup_end_time = models.DateTimeField()
+    s3_bucket_file_path = models.CharField(max_length=255)
+    s3_uri = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "IncBackupRecord"
+        unique_together = ('db_type', 'instance_name', 'backup_start_time', 'backup_end_time')
+
+    def __str__(self):
+        return f"{self.db_type} - {self.instance_name} ({self.backup_start_time} to {self.backup_end_time})"
+
+
+class RestoreRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+
+    instance = models.ForeignKey('Instance', on_delete=models.CASCADE, verbose_name="Instance")
+    restore_time = models.DateTimeField("Restore Time")
+    db_name = models.CharField("Database Name", max_length=100)
+    table_name = models.CharField("Table Name", max_length=100, blank=True, null=True)
+    unzip_password = models.CharField("Unzip Password", max_length=100)
+    status = models.CharField("Status", max_length=20, choices=STATUS_CHOICES, default='pending')
+    s3_bucket_file_path = models.CharField("S3 File Path", max_length=255)
+    created_at = models.DateTimeField("Created At", default=now)
+    updated_at = models.DateTimeField("Updated At", auto_now=True)
+    outcome = models.TextField("Outcome", blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.instance.instance_name} - {self.restore_time}"
+
+    class Meta:
+        verbose_name = "Restore Request"
+        verbose_name_plural = "Restore Requests"

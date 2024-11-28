@@ -5,7 +5,7 @@ import traceback
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
 from django.http import HttpResponseRedirect, FileResponse, Http404
 from django.urls import reverse
 
@@ -41,7 +41,17 @@ from sql.utils.sql_review import (
 )
 from common.utils.const import Const, WorkflowType, WorkflowAction
 from sql.utils.resource_group import user_groups, user_instances
-
+from .models import IncBackupRecord, RestoreRequest
+from .forms import RestoreRequestForm
+from .backup_utils import get_all_backups, get_backup_summary, fetch_and_store_backup_records
+from .restore_utils import (
+    generate_restore_command,
+    execute_restore_plan,
+    find_backup,
+    approve_restore_request,
+    reject_restore_request,
+    notify_user
+)
 import logging
 
 logger = logging.getLogger("default")
@@ -51,7 +61,58 @@ def index(request):
     index_path_url = SysConfig().get("index_path_url", "sqlworkflow")
     return HttpResponseRedirect(f"/{index_path_url.strip('/')}/")
 
+def backup(request):
+    """
+    Backup management view. Displays all backups and a summary.
+    """
+    # fetch the info from database
+    fetch_and_store_backup_records()
+    backups = get_all_backups()
+    summary = get_backup_summary()
+    return render(request, "backup_management.html", {
+        'backups': backups,
+        'summary': summary,
+    })
 
+def restore(request):
+    if request.method == "POST":
+        if "submit_request" in request.POST:
+            form = RestoreRequestForm(request.POST)
+            if form.is_valid():
+                restore_request = form.save(commit=False)
+                backup = find_backup(restore_request.instance.instance_name, restore_request.restore_time)
+                if backup:
+                    restore_request.s3_bucket_file_path = backup.s3_bucket_file_path
+                    restore_request.save()
+                else:
+                    form.add_error(None, "No matching backup found.")
+            return redirect('restore')
+        elif "approve_request" in request.POST:
+            request_id = request.POST.get('request_id')
+            restore_request = approve_restore_request(request_id)
+            restore_script = generate_restore_command(restore_request)
+            return render(request, 'restore_management.html', {
+                'restore_requests': RestoreRequest.objects.all(),
+                'preview_script': restore_script,
+                'confirm_request_id': request_id,
+            })
+        elif "confirm_request" in request.POST:
+            request_id = request.POST.get('request_id')
+            restore_request = RestoreRequest.objects.get(id=request_id)
+            outcome = execute_restore_plan(restore_request)
+            notify_user(restore_request, notification_function=send_email)
+            return render(request, 'restore_management.html', {
+                'restore_requests': RestoreRequest.objects.all(),
+                'message': f"Restore completed with status: {restore_request.status}. Outcome: {restore_request.outcome}",
+            })
+    else:
+        form = RestoreRequestForm()
+        restore_requests = RestoreRequest.objects.all()
+        return render(request, 'restore_management.html', {
+            'form': form,
+            'restore_requests': restore_requests,
+        })
+    
 def login(request):
     """登录页面"""
     if request.user and request.user.is_authenticated:

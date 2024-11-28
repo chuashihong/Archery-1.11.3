@@ -24,13 +24,17 @@ from sql import (
     audit_log,
     user,
     backup_utils,
+    restore_utils
 )
 from sql.utils import tasks
 from common.utils import ding_api
-
 urlpatterns = [
     path("", views.index),
-    path('backup/', views.backup_manual, name='backup_dashboard'),
+    path('backup/', views.backup, name='backup'),
+    path('restore/', views.restore, name='restore'),
+    path('restore/request/create/', restore_utils.restore_request_create, name='restore_request_create'),
+    path('restore/request/pending/', restore_utils.get_pending_restore_requests , name='restore_request_pending'),
+    path('backup/manual', views.backup_manual, name='backup_dashboard'),
     path('backup/auto', views.backup_auto, name='backup_auto'),
     path('backup/automated/create/', backup_utils.create_backup_routine, name='create_backup_routine'),
     path('backup/automated/delete/<int:id>/', backup_utils.delete_backup_routine, name='delete_backup_routine'),

@@ -1,13 +1,15 @@
 import os
 import shutil
 import subprocess
+import MySQLdb
+from django.db import IntegrityError
 from datetime import datetime
 
 from django.http import Http404, HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
 
 from sql.cron import create_backup_cron_job, delete_cron_job, toggle_cron_job
-from sql.models import BackupHistory, BackupRoutine, Instance
+from sql.models import BackupHistory, BackupRoutine, IncBackupRecord, Instance
 from sql.utils.resource_group import user_instances
 
 BACKUP_DIR_MANUAL = '/opt/archery/backup/manual'
@@ -24,6 +26,123 @@ os.makedirs(BACKUP_DIR_MANUAL_MONGO, exist_ok=True)
 os.makedirs(BACKUP_DIR_AUTO, exist_ok=True)
 os.makedirs(BACKUP_DIR_AUTO_MYSQL, exist_ok=True)
 os.makedirs(BACKUP_DIR_AUTO_MONGO, exist_ok=True)
+
+def fetch_and_store_backup_records():
+    """
+    Connects to the BackupRecord-db database, fetches records from the IncBackupRecord table,
+    and saves them into the Django model, avoiding duplicates.
+    """
+    # Connection details for the external database
+    host = 'host.docker.internal'
+    port = 3308
+    user = 'root'
+    password = 'chuashihong1'
+    database = 'mockdata'
+
+    # Establish the database connection
+    connection = MySQLdb.connect(
+        host=host,
+        port=port,
+        user=user,
+        passwd=password,
+        db=database,
+        charset='utf8mb4',
+        connect_timeout=10,
+    )
+
+    try:
+        with connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            # Query to fetch all records
+            query = "SELECT * FROM IncBackupRecord;"
+            cursor.execute(query)
+            records = cursor.fetchall()
+
+        # Iterate through records and save them to the Django model
+        for record in records:
+            try:
+                # Save record to Django model
+                IncBackupRecord.objects.get_or_create(
+                    db_type=record['db_type'],
+                    instance_name=record['instance_name'],
+                    backup_start_time=record['backup_start_time'],
+                    backup_end_time=record['backup_end_time'],
+                    defaults={
+                        's3_bucket_file_path': record['s3_bucket_file_path'],
+                        's3_uri': record['s3_uri']
+                    }
+                )
+            except IntegrityError as e:
+                print(f"Error saving record: {record}. Reason: {e}")
+
+    finally:
+        connection.close()
+
+def get_all_backups():
+    """
+    Retrieves all backup records from the database.
+    """
+    return IncBackupRecord.objects.all()
+
+
+def find_backups_by_instance(instance_name):
+    """
+    Finds all backup records for a specific instance.
+    """
+    return IncBackupRecord.objects.filter(instance_name=instance_name)
+
+
+def find_backup_by_time(instance_name, restore_time):
+    """
+    Finds the most relevant backup for an instance and restore time.
+    Returns the backup record or None if no match is found.
+    """
+    return IncBackupRecord.objects.filter(
+        instance_name=instance_name,
+        backup_start_time__lte=restore_time,
+        backup_end_time__gte=restore_time
+    ).first()
+
+
+def add_backup_record(db_type, instance_name, backup_start_time, backup_end_time, s3_bucket_file_path, s3_uri):
+    """
+    Adds a new backup record to the database.
+    """
+    backup_record = IncBackupRecord(
+        db_type=db_type,
+        instance_name=instance_name,
+        backup_start_time=backup_start_time,
+        backup_end_time=backup_end_time,
+        s3_bucket_file_path=s3_bucket_file_path,
+        s3_uri=s3_uri
+    )
+    backup_record.save()
+    return backup_record
+
+
+def delete_backup_record(backup_id):
+    """
+    Deletes a backup record by its ID.
+    """
+    try:
+        backup = IncBackupRecord.objects.get(id=backup_id)
+        backup.delete()
+        return True
+    except IncBackupRecord.DoesNotExist:
+        return False
+
+
+def get_backup_summary():
+    """
+    Provides a summary of backup records grouped by database type.
+    Example:
+        {
+            'mysql': 10,
+            'mongo': 5,
+            ...
+        }
+    """
+    from django.db.models import Count
+    return IncBackupRecord.objects.values('db_type').annotate(total=Count('db_type'))
 
 def perform_manual_backup(request):
     """Trigger a manual backup of the selected database or table."""
