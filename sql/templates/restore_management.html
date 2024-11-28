@@ -176,6 +176,7 @@
         listen_create_restore_request();
         // Function to load database list dynamically
         $('#instance').change(function () {
+            console.log($('#instance').val())
             database_list();
         });
 
