@@ -39,7 +39,7 @@
 <!-- Table for restore requests-->
 <div class="container">
     <h2>Pending Restore Requests</h2>
-    <table class="table table-striped">
+    <table class="table table-striped" id="pending-requests-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -47,6 +47,23 @@
                 <th>Restore Time</th>
                 <th>Database</th>
                 <th>Table</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <h2>Pending Requests</h2>
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Instance</th>
+                <th>Restore Time</th>
+                <th>Database</th>
+                <th>Table</th>
+                <th>Status</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -55,24 +72,21 @@
             <tr>
                 <td>{{ request.id }}</td>
                 <td>{{ request.instance.instance_name }}</td>
-                <td>{{ request.restore_time }}</td>
+                <td>{{ request.restore_time|default:"Not Specified" }}</td>
                 <td>{{ request.db_name }}</td>
-                <td>{{ request.table_name }}</td>
+                <td>{{ request.table_name|default:"All Tables" }}</td>
+                <td>{{ request.status }}</td>
                 <td>
-                    <button class="btn btn-success btn-sm" onclick="showExecuteModal({{ request.id }})">Execute</button>
-                    <form method="post" style="display:inline-block;">
-                        {% csrf_token %}
-                        <input type="hidden" name="request_id" value="{{ request.id }}">
-                        <button type="submit" name="reject_request" class="btn btn-danger btn-sm">Reject</button>
-                    </form>
+                    <button class="btn btn-success btn-sm" onclick="showExecuteModal({{request.id}})">Execute</button>
+                    <button class="btn btn-danger btn-sm" onclick="rejectRestoreRequest({{request.id}})">Reject</button>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <h2>Rejected Restore Requests</h2>
-    <!-- <table class="table table-striped">
+    <h2>Rejected Requests</h2>
+    <table class="table table-striped table-bordered">
         <thead>
             <tr>
                 <th>ID</th>
@@ -88,30 +102,17 @@
             <tr>
                 <td>{{ request.id }}</td>
                 <td>{{ request.instance.instance_name }}</td>
-                <td>{{ request.restore_time }}</td>
+                <td>{{ request.restore_time|default:"Not Specified" }}</td>
                 <td>{{ request.db_name }}</td>
-                <td>{{ request.table_name }}</td>
+                <td>{{ request.table_name|default:"All Tables" }}</td>
                 <td>{{ request.status }}</td>
             </tr>
             {% endfor %}
         </tbody>
-    </table> -->
-    <table class="table table-striped" id="pending-requests-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Instance</th>
-                <th>Restore Time</th>
-                <th>Database</th>
-                <th>Table</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-
     </table>
 
-    <h2>Closed Restore Requests</h2>
-    <table class="table table-striped" id="closed-requests-table">
+    <h2>Closed Requests</h2>
+    <table class="table table-striped table-bordered">
         <thead>
             <tr>
                 <th>ID</th>
@@ -120,7 +121,6 @@
                 <th>Database</th>
                 <th>Table</th>
                 <th>Status</th>
-                <th>Outcome</th>
             </tr>
         </thead>
         <tbody>
@@ -128,17 +128,16 @@
             <tr>
                 <td>{{ request.id }}</td>
                 <td>{{ request.instance.instance_name }}</td>
-                <td>{{ request.restore_time }}</td>
+                <td>{{ request.restore_time|default:"Not Specified" }}</td>
                 <td>{{ request.db_name }}</td>
-                <td>{{ request.table_name }}</td>
+                <td>{{ request.table_name|default:"All Tables" }}</td>
                 <td>{{ request.status }}</td>
-                <td>{{ request.outcome }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-<!--Modal for action-->
+<!-- Modal for action -->
 <div class="modal fade" id="executeModal" tabindex="-1" role="dialog" aria-labelledby="executeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
@@ -152,7 +151,22 @@
                 <p><strong>Instance:</strong> <span id="modalInstance"></span></p>
                 <p><strong>Database:</strong> <span id="modalDatabase"></span></p>
                 <p><strong>Table:</strong> <span id="modalTable"></span></p>
-                <pre id="modalCommand"></pre>
+                <p><strong>S3 URI:</strong> <span id="modalS3Uri"></span></p>
+                <p><strong>Region:</strong> <span id="modalRegion"></span></p>
+                <p><strong>Key:</strong> <span id="modalKey"></span></p>
+                <p><strong>Secret:</strong> <span id="modalSecret"></span></p>
+                <p><strong>Host:</strong> <span id="modalHost"></span></p>
+                <p><strong>Port:</strong> <span id="modalPort"></span></p>
+                <p><strong>User:</strong> <span id="modalUser"></span></p>
+                <p><strong>Password:</strong> <span id="modalPassword"></span></p>
+
+                <p><strong>Preview Command:</strong></p>
+                <pre id="modalCommand" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                
+                <div class="form-group mt-3" style="display:none;" id="editCommandContainer">
+                    <label for="editCommand">Edit Command:</label>
+                    <textarea id="editCommand" class="form-control" rows="6"></textarea>
+                </div>
             </div>
             <div class="modal-footer">
                 <form method="post">
@@ -160,11 +174,13 @@
                     <input type="hidden" id="modalRequestId" name="request_id">
                     <button type="submit" name="execute_request" class="btn btn-primary">Confirm & Execute</button>
                 </form>
+                <button type="button" id="editCommandButton" class="btn btn-secondary">Edit Command</button>
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
+
 
 {% endblock %}
 
@@ -173,6 +189,7 @@
     
     $(document).ready(function () {
         initializeInstanceList(); // Load instances dynamically
+        load_pending_restore_requests()
         listen_create_restore_request();
         // Function to load database list dynamically
         $('#instance').change(function () {
@@ -184,6 +201,24 @@
         $('#db_name').change(function () {
             table_list();
         });
+
+        $('#editCommandButton').on('click', function () {
+        const isEditing = $('#editCommandContainer').is(':visible');
+
+        if (isEditing) {
+            // Save changes and hide the edit textarea
+            const updatedCommand = $('#editCommand').val();
+            $('#modalCommand').text(updatedCommand);
+            $('#editCommandContainer').hide();
+            $(this).text('Edit Command');
+        } else {
+            // Show the edit textarea with the current command
+            const currentCommand = $('#modalCommand').text();
+            $('#editCommand').val(currentCommand);
+            $('#editCommandContainer').show();
+            $(this).text('Save Command');
+        }
+    });
     });
     
     function load_pending_restore_requests() {
@@ -192,6 +227,7 @@
             url: '/restore/request/pending/',
             success: function (response) {
                 if (response.status === "success") {
+                    console.log("Success", response);
                     $('#pending-requests-table tbody').empty();
                     response.requests.forEach(function (request) {
                         $('#pending-requests-table tbody').append(`
@@ -201,6 +237,7 @@
                                 <td>${request.restore_time || "Not Specified"}</td>
                                 <td>${request.db_name}</td>
                                 <td>${request.table_name || "All Tables"}</td>
+                                <td>${request.status}</td>
                                 <td>
                                     <button class="btn btn-success btn-sm" onclick="showExecuteModal(${request.id})">Execute</button>
                                     <button class="btn btn-danger btn-sm" onclick="rejectRestoreRequest(${request.id})">Reject</button>
@@ -217,8 +254,6 @@
             }
         });
     }
-
-
 
     function listen_create_restore_request() {
         // Handle form submission for creating a restore request
@@ -258,27 +293,79 @@
         });
     }
 
-function showExecuteModal(requestId) {
-    $.ajax({
-        type: "get",
-        url: `/restore/execution/details/${requestId}/`,
-        success: function (data) {
-            if (data.status === "success") {
-                $("#modalInstance").text(data.instance_name);
-                $("#modalDatabase").text(data.db_name);
-                $("#modalTable").text(data.table_name || "All Tables");
-                $("#modalCommand").text(data.command);
-                $("#modalRequestId").val(requestId);
-                $("#executeModal").modal("show");
-            } else {
-                alert(data.message);
-            }
-        },
-        error: function () {
-            alert("Failed to load restore details.");
+// function showExecuteModal(requestId) {
+//     $.ajax({
+//         type: "get",
+//         url: `/restore/execution/details/${requestId}/`,
+//         success: function (data) {
+//             if (data.status === "success") {
+//                 $("#modalInstance").text(data.instance_name);
+//                 $("#modalDatabase").text(data.db_name);
+//                 $("#modalTable").text(data.table_name || "All Tables");
+//                 $("#modalCommand").text(data.command);
+//                 $("#modalRequestId").val(requestId);
+//                 $("#executeModal").modal("show");
+//             } else {
+//                 alert(data.message);
+//             }
+//         },
+//         error: function () {
+//             alert("Failed to load restore details.");
+//         }
+//     });
+// }
+    function showExecuteModal(requestId) {
+        // Hardcoded data for POC
+        const hardcodedData = {
+            status: "success",
+            instance_name: "prd-mysql-tapo-aps-3",
+            db_name: "example_db",
+            table_name: "example_table",
+            s3_uri: "s3://my-backup-bucket/backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip",
+            region: "us-west-1",
+            key: "dummy-key",
+            secret: "dummy-secret",
+            host: "prd-mysql-tapo-aps-3-host",
+            port: "3306",
+            user: "admin",
+            password: "dummy-password",
+            command:`python mysql_incremental_restore.py -r \\
+                    --datasource='backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip' \\
+                    --region 'us-west-1' \\
+                    --key 'dummy-key' \\
+                    --secret 'dummy-secret' \\
+                    --host 'prd-mysql-tapo-aps-3-host' \\
+                    --port '3306' \\
+                    --user 'admin' \\
+                    --password 'dummy-password'`
+        };
+
+        if (hardcodedData.status === "success") {
+            // Populate modal with hardcoded values
+            $("#modalInstance").text(hardcodedData.instance_name);
+            $("#modalDatabase").text(hardcodedData.db_name);
+            $("#modalTable").text(hardcodedData.table_name || "All Tables");
+            $("#modalS3Uri").text(hardcodedData.s3_uri);
+            $("#modalRegion").text(hardcodedData.region);
+            $("#modalKey").text(hardcodedData.key);
+            $("#modalSecret").text(hardcodedData.secret);
+            $("#modalHost").text(hardcodedData.host);
+            $("#modalPort").text(hardcodedData.port);
+            $("#modalUser").text(hardcodedData.user);
+            $("#modalPassword").text(hardcodedData.password);
+
+            // Populate and wrap command
+            $("#modalCommand").text(hardcodedData.command);
+
+            // Set request ID for form submission
+            $("#modalRequestId").val(requestId);
+
+            // Show the modal
+            $("#executeModal").modal("show");
+        } else {
+            alert(hardcodedData.message || "Error occurred while fetching restore details.");
         }
-    });
-}
+    }
 
 
     // Function to load databases based on the selected instance

@@ -145,18 +145,29 @@ def get_pending_restore_requests(request):
 
     return JsonResponse({"status": "error", "message": "Invalid request method"}, status=400)
 
+from django.http import JsonResponse
+from .models import RestoreRequest, IncBackupRecord, Instance
+
 def get_restore_execution_details(request, request_id):
     """
     Fetch details for executing a restore request and generate the Python command preview.
     """
     try:
+        # Get the restore request
         restore_request = RestoreRequest.objects.get(id=request_id)
-        instance = restore_request.instance
+        instance = Instance.objects.get(id=restore_request.instance)
+
+        # Fetch restore time from the request
+        restore_time = restore_request.restore_time
+        if not restore_time:
+            return JsonResponse({"status": "error", "message": "Restore time not specified"}, status=400)
 
         # Fetch the corresponding backup record
         backup_record = IncBackupRecord.objects.filter(
             instance_name=instance.instance_name,
-            db_name=restore_request.db_name,
+            db_type=instance.db_type,
+            backup_start_time__lte=restore_time,
+            backup_end_time__gte=restore_time
         ).first()
 
         if not backup_record:
@@ -177,6 +188,7 @@ def get_restore_execution_details(request, request_id):
             f"--table '{restore_request.table_name or ''}'"
         )
 
+        # Return the response with the generated command and details
         return JsonResponse({
             "status": "success",
             "command": command,

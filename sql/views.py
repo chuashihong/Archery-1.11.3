@@ -74,7 +74,17 @@ def backup(request):
     })
 
 def restore(request):
-    return render(request, 'restore_management.html')
+    # Fetch all restore requests grouped by their status
+    pending_requests = RestoreRequest.objects.filter(status="pending")
+    rejected_requests = RestoreRequest.objects.filter(status="rejected")
+    closed_requests = RestoreRequest.objects.filter(status__in=["completed", "failed"])
+
+    # Pass the restore requests to the template
+    return render(request, 'restore_management.html', {
+        'pending_requests': pending_requests,
+        'rejected_requests': rejected_requests,
+        'closed_requests': closed_requests,
+    })
     
 def login(request):
     """登录页面"""

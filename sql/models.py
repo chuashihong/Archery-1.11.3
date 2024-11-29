@@ -1345,6 +1345,9 @@ class IncBackupRecord(models.Model):
     backup_end_time = models.DateTimeField()
     s3_bucket_file_path = models.CharField(max_length=255)
     s3_uri = models.CharField(max_length=255)
+    region = models.CharField(max_length=100, null=True, blank=True)
+    key = models.CharField(max_length=255, null=True, blank=True)
+    secret = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         db_table = "IncBackupRecord"
@@ -1352,7 +1355,6 @@ class IncBackupRecord(models.Model):
 
     def __str__(self):
         return f"{self.db_type} - {self.instance_name} ({self.backup_start_time} to {self.backup_end_time})"
-
 class RestoreRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
