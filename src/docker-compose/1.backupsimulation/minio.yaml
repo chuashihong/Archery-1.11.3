@@ -20,31 +20,30 @@ spec:
         - /data
         env:
         - name: MINIO_ROOT_USER
-          value: "minioadmin"
+          value: "chuashihong"
         - name: MINIO_ROOT_PASSWORD
-          value: "minioadmin"
+          value: "chuashihong"
         ports:
         - containerPort: 9000
         volumeMounts:
         - name: minio-data
           mountPath: /data
-      initContainers:
-      - name: create-bucket
-        image: minio/mc:latest
-        command:
-        - /bin/sh
-        - -c
-        - |
-          until mc alias set local http://localhost:9000 minioadmin minioadmin; do
-            echo "Waiting for MinIO to be ready...";
-            sleep 5;
-          done;
-          mc mb local/backups
-        env:
-        - name: MINIO_ROOT_USER
-          value: "minioadmin"
-        - name: MINIO_ROOT_PASSWORD
-          value: "minioadmin"
+      # initContainers:
+      # - name: create-bucket
+      #   image: minio/mc:latest
+      #   command: ["/bin/sh", "-c"]
+      #   args:
+      #   - |
+      #     until (mc alias set myminio http://minio:9000 minioadmin minioadmin123); do
+      #       echo "Waiting for MinIO to be ready...";
+      #       sleep 5;
+      #     done &&
+      #     mc mb myminio/mybucket
+      #   env:
+      #   - name: MINIO_ROOT_USER
+      #     value: "minioadmin"
+      #   - name: MINIO_ROOT_PASSWORD
+      #     value: "minioadmin"
       volumes:
       - name: minio-data
         emptyDir: {}
@@ -54,10 +53,13 @@ kind: Service
 metadata:
   name: minio
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
-    - port: 9000
+    - name: api
+      port: 9000
       targetPort: 9000
-      nodePort: 32000
+    - name: web-ui
+      port: 44079
+      targetPort: 44079
   selector:
     app: minio

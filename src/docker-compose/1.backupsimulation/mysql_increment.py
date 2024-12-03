@@ -20,7 +20,8 @@ s3_secret_key = os.getenv("S3_SECRET_KEY")
 s3_bucket_name = os.getenv("S3_BUCKET_NAME", "backups")  # Default bucket name
 
 # Backup timestamp
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+# backup_file = f"mysql_{timestamp}.sql"
 backup_file = f"/backup/mysql_backup_{timestamp}.sql"
 zip_file = f"{backup_file}.zip"
 
@@ -68,7 +69,7 @@ try:
         INSERT INTO BackupRecord (instance_name, database_type, start_time, end_time, s3_uri)
         VALUES (%s, %s, %s, %s, %s)
     """, ("mysql-instance", "MySQL", datetime.fromtimestamp(start_time),
-          datetime.fromtimestamp(end_time), f"{s3_endpoint}/{s3_bucket_name}/{s3_key}"))
+            datetime.fromtimestamp(end_time), f"{s3_endpoint}/{s3_bucket_name}/{s3_key}"))
     connection.commit()
     cursor.close()
     connection.close()

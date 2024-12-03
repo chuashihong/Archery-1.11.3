@@ -36,8 +36,8 @@ def fetch_and_store_backup_records():
     host = 'host.docker.internal'
     port = 3308
     user = 'root'
-    password = 'chuashihong1'
-    database = 'mockdata'
+    password = os.getenv('LOGDB_PASSWORD')
+    database = 'backup_log_db'
 
     # Establish the database connection
     connection = MySQLdb.connect(
@@ -53,7 +53,7 @@ def fetch_and_store_backup_records():
     try:
         with connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
             # Query to fetch all records
-            query = "SELECT * FROM IncBackupRecord;"
+            query = "SELECT * FROM BackupRecord;"
             cursor.execute(query)
             records = cursor.fetchall()
 
@@ -62,12 +62,11 @@ def fetch_and_store_backup_records():
             try:
                 # Save record to Django model
                 IncBackupRecord.objects.get_or_create(
-                    db_type=record['db_type'],
+                    db_type=record['database_type'],
                     instance_name=record['instance_name'],
-                    backup_start_time=record['backup_start_time'],
-                    backup_end_time=record['backup_end_time'],
+                    backup_start_time=record['start_time'],
+                    backup_end_time=record['end_time'],
                     defaults={
-                        's3_bucket_file_path': record['s3_bucket_file_path'],
                         's3_uri': record['s3_uri']
                     }
                 )

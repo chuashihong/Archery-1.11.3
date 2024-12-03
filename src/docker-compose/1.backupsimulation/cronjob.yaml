@@ -43,8 +43,12 @@ spec:
                   name: mysql-backup-secret
                   key: zip-password
             # Simulated S3 bucket details
-            - name: S3_BUCKET_URI
-              value: "fake-s3-bucket"
+            - name: S3_BUCKET_NAME
+              value: "backups" # Default bucket name
+            # - name: S3_BUCKET_URI
+            #   value: "fake-s3-bucket"
+            - name: S3_ENDPOINT
+              value: "http://minio:9000" # MinIO server endpoint
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -79,7 +83,7 @@ type: Opaque
 data:
   mysql-password: Y2h1YXNoaWhvbmc= # Base64 encoded MySQL password
   logdb-password: Y2h1YXNoaWhvbmc= # Base64 encoded log DB password
-  s3-access-key: MTIzNDU2 # Base64 encoded S3 access key
+  s3-access-key: Y2h1YXNoaWhvbmc= # Base64 encoded S3 access key
   s3-secret-key: Y2h1YXNoaWhvbmc= # Base64 encoded S3 secret key
   zip-password: Y2h1YXNoaWhvbmc= # Base64 encoded ZIP password
 
@@ -123,7 +127,7 @@ data:
     s3_bucket_name = os.getenv("S3_BUCKET_NAME", "backups")  # Default bucket name
 
     # Backup timestamp
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     backup_file = f"/backup/mysql_backup_{timestamp}.sql"
     zip_file = f"{backup_file}.zip"
 
@@ -154,7 +158,8 @@ data:
         )
 
         # Upload the zipped file to MinIO
-        s3_key = os.path.basename(zip_file)
+        destination_folder = "mysql"  # Use the correct folder
+        s3_key = f"{destination_folder}/{timestamp}.zip"
         s3_client.upload_file(zip_file, s3_bucket_name, s3_key)
         print(f"Backup uploaded to MinIO: {s3_endpoint}/{s3_bucket_name}/{s3_key}")
 
@@ -171,7 +176,7 @@ data:
             INSERT INTO BackupRecord (instance_name, database_type, start_time, end_time, s3_uri)
             VALUES (%s, %s, %s, %s, %s)
         """, ("mysql-instance", "MySQL", datetime.fromtimestamp(start_time),
-              datetime.fromtimestamp(end_time), f"{s3_endpoint}/{s3_bucket_name}/{s3_key}"))
+                datetime.fromtimestamp(end_time), f"{s3_endpoint}/{s3_bucket_name}/{s3_key}"))
         connection.commit()
         cursor.close()
         connection.close()
