@@ -17,7 +17,7 @@ CREATE TABLE IncBackupRecord (
 );
 
 -- Insert mock data into the table
-INSERT INTO IncBackupRecord (db_type, instance_name, backup_start_time, backup_end_time, s3_bucket_file_path, s3_uri) 
+INSERT INTO IncBackupRecord (db_type, instance_name, backup_start_time, backup_end_time, s3_bucket_file_path, s3_uri)
 VALUES
     ('mysql', 'prd-mysql-tapo-aps-1', '2024-11-28 01:00:00', '2024-11-28 02:00:00', 'backups/mysql/prd-mysql-tapo-aps-1/2024-11-28_01-02.zip', 's3://my-backup-bucket/backups/mysql/prd-mysql-tapo-aps-1/2024-11-28_01-02.zip'),
     ('mysql', 'prd-mysql-tapo-aps-2', '2024-11-28 02:00:00', '2024-11-28 03:00:00', 'backups/mysql/prd-mysql-tapo-aps-2/2024-11-28_02-03.zip', 's3://my-backup-bucket/backups/mysql/prd-mysql-tapo-aps-2/2024-11-28_02-03.zip'),

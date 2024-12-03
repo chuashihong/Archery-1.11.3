@@ -55,7 +55,6 @@ import logging
 
 logger = logging.getLogger("default")
 
-
 def index(request):
     index_path_url = SysConfig().get("index_path_url", "sqlworkflow")
     return HttpResponseRedirect(f"/{index_path_url.strip('/')}/")

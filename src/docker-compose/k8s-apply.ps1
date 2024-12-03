@@ -11,8 +11,6 @@
 # kubectl apply -f .\k8s\mysql-backup-data.yml
 # kubectl apply -f .\k8s\mysql-backup-data-service.yml
 
-
-
 kubectl apply -f .\k8s\db-1-deployment.yml
 kubectl apply -f .\k8s\db-2-deployment.yml
 kubectl apply -f .\k8s\db-3-deployment.yml
