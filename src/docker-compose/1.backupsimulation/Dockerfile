@@ -6,10 +6,11 @@ WORKDIR /scripts
 RUN apt-get update && apt-get install -y \
     default-mysql-client \
     zip && \
-    pip install pymysql
+    pip install --upgrade pip && \
+    pip install pymysql boto3
 
-# # Copy the Python script
-# COPY mysql_increment.py /scripts/
+# Expose the working directory
+VOLUME /scripts
 
-# # Set the default command
-# CMD ["python", "/scripts/mysql_increment.py"]
+# Ensure entrypoint remains flexible for mounting and running scripts
+ENTRYPOINT ["/bin/bash"]

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ROOT_USER
+          value: "minioadmin"
+        - name: MINIO_ROOT_PASSWORD
+          value: "minioadmin"
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+      initContainers:
+      - name: create-bucket
+        image: minio/mc:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          until mc alias set local http://localhost:9000 minioadmin minioadmin; do
+            echo "Waiting for MinIO to be ready...";
+            sleep 5;
+          done;
+          mc mb local/backups
+        env:
+        - name: MINIO_ROOT_USER
+          value: "minioadmin"
+        - name: MINIO_ROOT_PASSWORD
+          value: "minioadmin"
+      volumes:
+      - name: minio-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 32000
+  selector:
+    app: minio
