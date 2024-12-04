@@ -2,7 +2,7 @@ import os
 import subprocess
 import pymysql
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
@@ -20,8 +20,9 @@ s3_secret_key = os.getenv("S3_SECRET_KEY")
 s3_bucket_name = os.getenv("S3_BUCKET_NAME", "backups")  # Default bucket name
 
 # Backup timestamp
-timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-# backup_file = f"mysql_{timestamp}.sql"
+
+now = datetime.now()
+timestamp = now.strftime("%Y-%m-%d_%H-%M")
 backup_file = f"/backup/mysql_backup_{timestamp}.sql"
 zip_file = f"{backup_file}.zip"
 
@@ -47,12 +48,13 @@ try:
     s3_client = boto3.client(
         's3',
         endpoint_url=s3_endpoint,
-        aws_access_key_id=s3_access_key,
-        aws_secret_access_key=s3_secret_key
+        aws_access_key_id=s3_access_key, ##username
+        aws_secret_access_key=s3_secret_key ##password
     )
 
     # Upload the zipped file to MinIO
-    s3_key = os.path.basename(zip_file)
+    destination_folder = "mysql"  # Use the correct folder
+    s3_key = f"{destination_folder}/{timestamp}.zip"
     s3_client.upload_file(zip_file, s3_bucket_name, s3_key)
     print(f"Backup uploaded to MinIO: {s3_endpoint}/{s3_bucket_name}/{s3_key}")
 
@@ -64,12 +66,17 @@ try:
         password=log_db_password,
         database="backup_log_db"  # Use the correct database
     )
+    time_spent = end_time - start_time
+
+    filename_time = now.replace(second=0, microsecond=0) - timedelta(minutes=1)  # 1 minute before current time
+    backup_start_time = filename_time.replace(second=0)  # Start of the minute
+    backup_end_time = filename_time.replace(second=59)  # End of the minute
+
     cursor = connection.cursor()
     cursor.execute("""
-        INSERT INTO BackupRecord (instance_name, database_type, start_time, end_time, s3_uri)
-        VALUES (%s, %s, %s, %s, %s)
-    """, ("mysql-instance", "MySQL", datetime.fromtimestamp(start_time),
-            datetime.fromtimestamp(end_time), f"{s3_endpoint}/{s3_bucket_name}/{s3_key}"))
+        INSERT INTO BackupRecord (instance_name, database_type, start_time, end_time, s3_uri, time_spent)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, ("mysql-instance", "MySQL", backup_start_time, backup_end_time, f"{s3_endpoint}/{s3_bucket_name}/{s3_key}", time_spent))
     connection.commit()
     cursor.close()
     connection.close()

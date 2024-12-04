@@ -1339,22 +1339,21 @@ class AuditEntry(models.Model):
         )
     
 class IncBackupRecord(models.Model):
-    db_type = models.CharField(max_length=50)
-    instance_name = models.CharField(max_length=100)
-    backup_start_time = models.DateTimeField()
-    backup_end_time = models.DateTimeField()
-    s3_bucket_file_path = models.CharField(max_length=255)
-    s3_uri = models.CharField(max_length=255)
-    region = models.CharField(max_length=100, null=True, blank=True)
-    key = models.CharField(max_length=255, null=True, blank=True)
-    secret = models.CharField(max_length=255, null=True, blank=True)
+    id = models.AutoField(primary_key=True)  # Auto-increment primary key
+    instance_name = models.CharField(max_length=255)
+    database_type = models.CharField(max_length=50)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    time_spent = models.FloatField(blank=True, null=True)  # Time spent in seconds as a float
+    s3_uri = models.TextField()
 
     class Meta:
-        db_table = "IncBackupRecord"
-        unique_together = ('db_type', 'instance_name', 'backup_start_time', 'backup_end_time')
+        db_table = "IncBackupRecord"  # Matches the table name in the database
+        unique_together = ('instance_name', 'database_type', 'start_time', 'end_time')  # Ensure unique constraints
 
     def __str__(self):
-        return f"{self.db_type} - {self.instance_name} ({self.backup_start_time} to {self.backup_end_time})"
+        return f"{self.database_type} - {self.instance_name} ({self.start_time} to {self.end_time})"
+
 class RestoreRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),

@@ -59,7 +59,7 @@ spec:
       port: 9000
       targetPort: 9000
     - name: web-ui
-      port: 44079
-      targetPort: 44079
+      port: 46095
+      targetPort: 46095
   selector:
     app: minio

@@ -38,8 +38,8 @@
 </div>
 <!-- Table for restore requests-->
 <div class="container">
-    <h2>Pending Restore Requests</h2>
-    <table class="table table-striped" id="pending-requests-table">
+    <!-- <h2>Pending Restore Requests</h2> -->
+    <!-- <table class="table table-striped" id="pending-requests-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -53,7 +53,7 @@
         </thead>
         <tbody>
         </tbody>
-    </table>
+    </table> -->
     <h2>Pending Requests</h2>
     <table class="table table-striped table-bordered">
         <thead>
@@ -220,6 +220,52 @@
         }
     });
     });
+
+    $('#executeModal form').on('submit', function (e) {
+        e.preventDefault(); // Prevent the default form submission
+        console.log("clicked");
+
+        // Gather form data
+        var formData = {
+            instance: $('#modalInstance').text().trim(),
+            database: $('#modalDatabase').text().trim(),
+            table: $('#modalTable').text().trim(),
+            s3Uri: $('#modalS3Uri').text().trim(),
+            region: $('#modalRegion').text().trim(),
+            key: $('#modalKey').text().trim(),
+            secret: $('#modalSecret').text().trim(),
+            host: $('#modalHost').text().trim(),
+            port: $('#modalPort').text().trim(),
+            user: $('#modalUser').text().trim(),
+            password: $('#modalPassword').text().trim(),
+            csrfmiddlewaretoken: $('[name="csrfmiddlewaretoken"]').val() // Include CSRF token
+        };
+
+        console.log("Form data:", formData);
+
+        // Send the AJAX POST request
+        $.ajax({
+            type: 'POST',
+            url: '/restore/execute',  // Replace with the actual URL for handling routine creation
+            data: formData,
+            success: function (response) {
+                if (response.status === "success") {
+                    console.log("Success:", response.message);
+                    // Optionally close the modal and show success message
+                    $('#executeModal').modal('hide');
+                    alert("Execution succeeded: " + response.message);
+                } else {
+                    console.error("Error:", response.message);
+                    alert("Execution failed: " + response.message);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("AJAX Error:", error);
+                alert("An error occurred: " + error);
+            }
+        });
+    });
+
     
     function load_pending_restore_requests() {
         $.ajax({
@@ -293,79 +339,95 @@
         });
     }
 
-// function showExecuteModal(requestId) {
-//     $.ajax({
-//         type: "get",
-//         url: `/restore/execution/details/${requestId}/`,
-//         success: function (data) {
-//             if (data.status === "success") {
-//                 $("#modalInstance").text(data.instance_name);
-//                 $("#modalDatabase").text(data.db_name);
-//                 $("#modalTable").text(data.table_name || "All Tables");
-//                 $("#modalCommand").text(data.command);
-//                 $("#modalRequestId").val(requestId);
-//                 $("#executeModal").modal("show");
-//             } else {
-//                 alert(data.message);
-//             }
-//         },
-//         error: function () {
-//             alert("Failed to load restore details.");
-//         }
-//     });
-// }
     function showExecuteModal(requestId) {
-        // Hardcoded data for POC
-        const hardcodedData = {
-            status: "success",
-            instance_name: "prd-mysql-tapo-aps-3",
-            db_name: "example_db",
-            table_name: "example_table",
-            s3_uri: "s3://my-backup-bucket/backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip",
-            region: "us-west-1",
-            key: "dummy-key",
-            secret: "dummy-secret",
-            host: "prd-mysql-tapo-aps-3-host",
-            port: "3306",
-            user: "admin",
-            password: "dummy-password",
-            command:`python mysql_incremental_restore.py -r \\
-                    --datasource='backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip' \\
-                    --region 'us-west-1' \\
-                    --key 'dummy-key' \\
-                    --secret 'dummy-secret' \\
-                    --host 'prd-mysql-tapo-aps-3-host' \\
-                    --port '3306' \\
-                    --user 'admin' \\
-                    --password 'dummy-password'`
-        };
+        console.log(requestId);
+        $.ajax({
+            type: "get",
+            url: `/restore/execution/details/${requestId}/`,
+            success: function (data) {
+                if (data.status === "success") {
+                    console.log("data returned:", data);
+                    // $("#modalInstance").text(data.instance_name);
+                    // $("#modalDatabase").text(data.db_name);
+                    // $("#modalTable").text(data.table_name || "All Tables");
+                    // $("#modalCommand").text(data.command);
 
-        if (hardcodedData.status === "success") {
-            // Populate modal with hardcoded values
-            $("#modalInstance").text(hardcodedData.instance_name);
-            $("#modalDatabase").text(hardcodedData.db_name);
-            $("#modalTable").text(hardcodedData.table_name || "All Tables");
-            $("#modalS3Uri").text(hardcodedData.s3_uri);
-            $("#modalRegion").text(hardcodedData.region);
-            $("#modalKey").text(hardcodedData.key);
-            $("#modalSecret").text(hardcodedData.secret);
-            $("#modalHost").text(hardcodedData.host);
-            $("#modalPort").text(hardcodedData.port);
-            $("#modalUser").text(hardcodedData.user);
-            $("#modalPassword").text(hardcodedData.password);
+                    $("#modalInstance").text(data.instance_name);
+                    $("#modalDatabase").text(data.db_name);
+                    $("#modalTable").text(data.table_name || "All Tables");
+                    $("#modalS3Uri").text(data.s3_uri);
+                    $("#modalRegion").text(data.region);
+                    $("#modalKey").text(data.key);
+                    $("#modalSecret").text(data.secret);
+                    $("#modalHost").text(data.host);
+                    $("#modalPort").text(data.port);
+                    $("#modalUser").text(data.user);
+                    $("#modalPassword").text(data.password);
+                    $("#modalCommand").text(data.command);
 
-            // Populate and wrap command
-            $("#modalCommand").text(hardcodedData.command);
-
-            // Set request ID for form submission
-            $("#modalRequestId").val(requestId);
-
-            // Show the modal
-            $("#executeModal").modal("show");
-        } else {
-            alert(hardcodedData.message || "Error occurred while fetching restore details.");
-        }
+                    $("#modalRequestId").val(requestId);
+                    $("#executeModal").modal("show");
+                } else {
+                    alert(data.message);
+                }
+            },
+            error: function () {
+                alert("Failed to load restore details.");
+            }
+        });
     }
+    // function showExecuteModal(requestId) {
+    //     // Hardcoded data for POC
+    //     const hardcodedData = {
+    //         status: "success",
+    //         instance_name: "prd-mysql-tapo-aps-3",
+    //         db_name: "example_db",
+    //         table_name: "example_table",
+    //         s3_uri: "s3://my-backup-bucket/backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip",
+    //         region: "us-west-1",
+    //         key: "dummy-key",
+    //         secret: "dummy-secret",
+    //         host: "prd-mysql-tapo-aps-3-host",
+    //         port: "3306",
+    //         user: "admin",
+    //         password: "dummy-password",
+    //         command:`python mysql_incremental_restore.py -r \\
+    //                 --datasource='backups/mysql/prd-mysql-tapo-aps-3/2024-11-28_03-04.zip' \\
+    //                 --region 'us-west-1' \\
+    //                 --key 'dummy-key' \\
+    //                 --secret 'dummy-secret' \\
+    //                 --host 'prd-mysql-tapo-aps-3-host' \\
+    //                 --port '3306' \\
+    //                 --user 'admin' \\
+    //                 --password 'dummy-password'`
+    //     };
+
+    //     if (hardcodedData.status === "success") {
+    //         // Populate modal with hardcoded values
+    //         $("#modalInstance").text(hardcodedData.instance_name);
+    //         $("#modalDatabase").text(hardcodedData.db_name);
+    //         $("#modalTable").text(hardcodedData.table_name || "All Tables");
+    //         $("#modalS3Uri").text(hardcodedData.s3_uri);
+    //         $("#modalRegion").text(hardcodedData.region);
+    //         $("#modalKey").text(hardcodedData.key);
+    //         $("#modalSecret").text(hardcodedData.secret);
+    //         $("#modalHost").text(hardcodedData.host);
+    //         $("#modalPort").text(hardcodedData.port);
+    //         $("#modalUser").text(hardcodedData.user);
+    //         $("#modalPassword").text(hardcodedData.password);
+
+    //         // Populate and wrap command
+    //         $("#modalCommand").text(hardcodedData.command);
+
+    //         // Set request ID for form submission
+    //         $("#modalRequestId").val(requestId);
+
+    //         // Show the modal
+    //         $("#executeModal").modal("show");
+    //     } else {
+    //         alert(hardcodedData.message || "Error occurred while fetching restore details.");
+    //     }
+    // }
 
 
     // Function to load databases based on the selected instance

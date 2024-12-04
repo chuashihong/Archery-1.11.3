@@ -62,10 +62,10 @@ def fetch_and_store_backup_records():
             try:
                 # Save record to Django model
                 IncBackupRecord.objects.get_or_create(
-                    db_type=record['database_type'],
+                    database_type=record['database_type'],
                     instance_name=record['instance_name'],
-                    backup_start_time=record['start_time'],
-                    backup_end_time=record['end_time'],
+                    start_time=record['start_time'],
+                    end_time=record['end_time'],
                     defaults={
                         's3_uri': record['s3_uri']
                     }
@@ -102,16 +102,15 @@ def find_backup_by_time(instance_name, restore_time):
     ).first()
 
 
-def add_backup_record(db_type, instance_name, backup_start_time, backup_end_time, s3_bucket_file_path, s3_uri):
+def add_backup_record(db_type, instance_name, start_time, end_time, s3_uri):
     """
     Adds a new backup record to the database.
     """
     backup_record = IncBackupRecord(
-        db_type=db_type,
+        database_type=db_type,
         instance_name=instance_name,
-        backup_start_time=backup_start_time,
-        backup_end_time=backup_end_time,
-        s3_bucket_file_path=s3_bucket_file_path,
+        start_time=start_time,
+        end_time=end_time,
         s3_uri=s3_uri
     )
     backup_record.save()
@@ -141,7 +140,7 @@ def get_backup_summary():
         }
     """
     from django.db.models import Count
-    return IncBackupRecord.objects.values('db_type').annotate(total=Count('db_type'))
+    return IncBackupRecord.objects.values('database_type').annotate(total=Count('database_type'))
 
 def perform_manual_backup(request):
     """Trigger a manual backup of the selected database or table."""

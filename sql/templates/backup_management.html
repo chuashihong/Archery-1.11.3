@@ -19,10 +19,10 @@
             {% for backup in backups %}
             <tr>
                 <td>{{ backup.id }}</td>
-                <td>{{ backup.db_type }}</td>
+                <td>{{ backup.database_type }}</td>
                 <td>{{ backup.instance_name }}</td>
-                <td>{{ backup.backup_start_time }}</td>
-                <td>{{ backup.backup_end_time }}</td>
+                <td>{{ backup.start_time }}</td>
+                <td>{{ backup.end_time }}</td>
                 <td>{{ backup.s3_uri }} </td>
             </tr>
             {% endfor %}

@@ -30,6 +30,7 @@ spec:
             name: log-db-init-script
 
 ---
+# Config map for log-db-instance
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -46,10 +47,20 @@ data:
         database_type VARCHAR(50),
         start_time DATETIME,
         end_time DATETIME,
+        time_spent FLOAT,
+        s3_uri TEXT
+    );
+    
+    CREATE TABLE IF NOT EXISTS IncBackupRecord (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        instance_name VARCHAR(255),
+        database_type VARCHAR(50),
+        start_time DATETIME,
+        end_time DATETIME,
         s3_uri TEXT
     );
 ---
-# Target Database Deployment (mysql-instance)
+# MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,6 +83,92 @@ spec:
               value: chuashihong
           ports:
             - containerPort: 3306
+          volumeMounts:
+            - name: mysql-config-volume
+              mountPath: /etc/mysql/conf.d/
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d/
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: init-script
+          configMap:
+            name: mysql-init-script
+        - name: mysql-config-volume
+          configMap:
+            name: mysql-config
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+
+---
+
+# ConfigMap for MySQL Initialization Script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-script
+data:
+  mysql-init.sql: |
+    CREATE DATABASE IF NOT EXISTS db1;
+    CREATE DATABASE IF NOT EXISTS db2;
+
+    USE db1;
+    CREATE TABLE IF NOT EXISTS table1 (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS table2 (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    USE db2;
+    CREATE TABLE IF NOT EXISTS table3 (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS table4 (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+---
+
+# ConfigMap for MySQL Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  my.cnf: |
+    [mysqld]
+    server-id=1
+    log-bin=/var/lib/mysql/mysql-bin.log
+    binlog_format=ROW
+    expire_logs_days=7
+    max_binlog_size=100M
+
+---
+
+# PersistentVolumeClaim for MySQL Data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
 ---
 apiVersion: v1
 kind: Service

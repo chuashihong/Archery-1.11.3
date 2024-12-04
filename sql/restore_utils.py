@@ -1,4 +1,9 @@
 import subprocess
+import boto3
+import os
+from datetime import datetime
+
+import pymysql
 from .models import IncBackupRecord, RestoreRequest, Instance
 from django.db.models import Q
 from django.http import JsonResponse
@@ -153,36 +158,46 @@ def get_restore_execution_details(request, request_id):
     Fetch details for executing a restore request and generate the Python command preview.
     """
     try:
-        # Get the restore request
+        # Get the restore request 
         restore_request = RestoreRequest.objects.get(id=request_id)
-        instance = Instance.objects.get(id=restore_request.instance)
+        
+        # Get the Instance for this restore
+        instance = Instance.objects.get(id=restore_request.instance_id)
 
         # Fetch restore time from the request
         restore_time = restore_request.restore_time
         if not restore_time:
             return JsonResponse({"status": "error", "message": "Restore time not specified"}, status=400)
 
-        # Fetch the corresponding backup record
+        # Fetch the corresponding backup record (To get the S3 details)
         backup_record = IncBackupRecord.objects.filter(
             instance_name=instance.instance_name,
-            db_type=instance.db_type,
-            backup_start_time__lte=restore_time,
-            backup_end_time__gte=restore_time
+            database_type=instance.db_type,
+            start_time__lte=restore_time,
+            end_time__gte=restore_time
         ).first()
 
         if not backup_record:
-            return JsonResponse({"status": "error", "message": "No matching backup record found"}, status=404)
+            return JsonResponse({"status": "error", "message": "No matching backup record found"})
 
         # Construct the Python command
+        # LOGDB_PASSWORD=chuashihong
+        # S3_ACCESS_KEY=chuashihong
+        # S3_SECRET_KEY=chuashihong
+        # ZIP_PASSWORD=chuashihong
+        s3_access_key = os.getenv("S3_ACCESS_KEY")
+        s3_secret_key = os.getenv("S3_SECRET_KEY")
+        zip_password = os.getenv("ZIP_PASSWORD")
         command = (
-            f"python mysql_incremental_restore.py -r "
-            f"--datasource='{backup_record.s3_bucket_file_path}' "
+            f"python mysql_restore.py -r "
+            f"--datasource='{backup_record.s3_uri}' "
             f"--region 'your-region' "
-            f"--key 'your-key' "
-            f"--secret 'your-secret' "
+            f"--key {s3_access_key} "
+            f"--secret {s3_secret_key} "
             f"--host '{instance.host}' "
             f"--port '{instance.port}' "
             f"--user '{instance.user}' "
+            f"--zip_password '{zip_password}'"
             f"--password '{instance.password}' "
             f"--db_name '{restore_request.db_name}' "
             f"--table '{restore_request.table_name or ''}'"
@@ -195,7 +210,126 @@ def get_restore_execution_details(request, request_id):
             "instance_name": instance.instance_name,
             "db_name": restore_request.db_name,
             "table_name": restore_request.table_name,
+            "s3_uri":backup_record.s3_uri,
+            "region": "your-region",
+            "key": s3_access_key,
+            "secret": s3_secret_key,
+            "host": instance.host,
+            "port": instance.port,
+            "user": instance.user,
+            "password": instance.password,
+
         })
 
     except RestoreRequest.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Restore request not found"}, status=404)
+
+
+def restore_backup(request):
+    if request.method == "POST":
+        # Retrieve data from AJAX request
+        instance = request.POST.get("instance")
+        database = request.POST.get("database")
+        table = request.POST.get("table")
+        s3_uri = request.POST.get("s3Uri")
+        region = request.POST.get("region")
+        key = request.POST.get("key")
+        secret = request.POST.get("secret")
+        host = request.POST.get("host")
+        port = request.POST.get("port")
+        user = request.POST.get("user")
+        password = request.POST.get("password")
+        zip_password = os.getenv("ZIP_PASSWORD")
+        
+        # Generate a timestamped database name
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        restore_database = f"{database}_{timestamp}"
+        
+        try:
+            bucket_name, object_key = s3_uri.split("/", 3)[-1].split("/", 1)
+
+            # Download backup file from MinIO
+            print("Connecting to S3...")
+            local_zip_path = f"/tmp/{object_key.split('/')[-1]}"
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=key,
+                aws_secret_access_key=secret,
+                endpoint_url='http://host.docker.internal:9000'
+            )
+            print("Connected")
+            print("bucket_name, object key and local_zip_path", bucket_name, object_key, local_zip_path)
+            s3_client.download_file(bucket_name, object_key, local_zip_path)
+            print(f"Downloaded {s3_uri} to {local_zip_path}")
+
+            # Unzip the backup file to /tmp/backup/
+            extraction_dir = "/tmp/backup"
+            os.makedirs(extraction_dir, exist_ok=True)  # Ensure the extraction directory exists
+            subprocess.run(
+                ["unzip", "-P", zip_password, "-j", local_zip_path, "-d", extraction_dir],
+                check=True
+            )
+            print(f"Unzipped to {extraction_dir}")
+
+            # Modify SQL dump file to use `db1_{timestamp}`
+            local_sql_path = f"{object_key.split('/')[-1]}".replace(".zip", ".sql")
+            backup_file = os.path.join(extraction_dir, f"mysql_backup_{local_sql_path}")
+            modified_file = os.path.join(extraction_dir, f"{restore_database}.sql")
+
+            with open(backup_file, "r") as infile, open(modified_file, "w") as outfile:
+                for line in infile:
+                    # Replace "USE db1" with "USE db1_{timestamp}"
+                    if line.strip().startswith("USE "):
+                        line = line.replace(f"USE `{database}`", f"USE `{restore_database}`")
+                    outfile.write(line)
+            print(f"Modified SQL file saved to `{modified_file}`")
+
+            # Create the new database `db1_{timestamp}`
+            connection = pymysql.connect(
+                host=host,
+                port=int(port),
+                user=user,
+                password=password
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE `{restore_database}`")
+                print(f"Created new database `{restore_database}`")
+            connection.commit()
+            connection.close()
+
+            # Restore the backup to the new database
+            restore_command = [
+                "mysql",
+                "-h", host,
+                "-P", port,
+                "-u", user,
+                f"--password={password}",
+                restore_database
+            ]
+            with open(modified_file, "r") as sql_file:
+                subprocess.run(restore_command, stdin=sql_file, check=True)
+            print(f"Restored backup to `{restore_database}`")
+
+            # Rename the table in the restored database
+            connection = pymysql.connect(
+                host=host,
+                port=int(port),
+                user=user,
+                password=password,
+                database=restore_database
+            )
+            with connection.cursor() as cursor:
+                restored_table_name = f"{table}_restore_{timestamp}"
+                cursor.execute(f"RENAME TABLE `{table}` TO `{restored_table_name}`")
+                print(f"Renamed table `{table}` to `{restored_table_name}` in `{restore_database}`")
+            connection.commit()
+            connection.close()
+
+
+            return JsonResponse({"status": "success", "message": f"Restored to {restore_database}.{restored_table_name}"})
+        
+        except Exception as e:
+            print(f"Error during restore: {e}")
+            return JsonResponse({"status": "error", "message": str(e)})
+    else:
+        return JsonResponse({"status": "error", "message": "Invalid request method."})

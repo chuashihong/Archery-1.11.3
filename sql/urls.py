@@ -34,6 +34,7 @@ urlpatterns = [
     path('restore/', views.restore, name='restore'),
     path('restore/request/create/', restore_utils.restore_request_create, name='restore_request_create'),
     path('restore/request/pending/', restore_utils.get_pending_restore_requests , name='restore_request_pending'),
+    path('restore/execute', restore_utils.restore_backup , name='restore_execute'),
     path('restore/execution/details/<int:request_id>/', restore_utils.get_restore_execution_details, name='restore_execution_details'),
     path('backup/manual', views.backup_manual, name='backup_dashboard'),
     path('backup/auto', views.backup_auto, name='backup_auto'),
