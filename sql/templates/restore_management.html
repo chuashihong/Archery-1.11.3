@@ -238,6 +238,7 @@
             port: $('#modalPort').text().trim(),
             user: $('#modalUser').text().trim(),
             password: $('#modalPassword').text().trim(),
+            requestId: $("#modalRequestId").text().trim(),
             csrfmiddlewaretoken: $('[name="csrfmiddlewaretoken"]').val() // Include CSRF token
         };
 
@@ -365,7 +366,7 @@
                     $("#modalPassword").text(data.password);
                     $("#modalCommand").text(data.command);
 
-                    $("#modalRequestId").val(requestId);
+                    $("#modalRequestId").text(requestId);
                     $("#executeModal").modal("show");
                 } else {
                     alert(data.message);

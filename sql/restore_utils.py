@@ -150,12 +150,9 @@ def get_pending_restore_requests(request):
 
     return JsonResponse({"status": "error", "message": "Invalid request method"}, status=400)
 
-from django.http import JsonResponse
-from .models import RestoreRequest, IncBackupRecord, Instance
-
 def get_restore_execution_details(request, request_id):
     """
-    Fetch details for executing a restore request and generate the Python command preview.
+    Fetch details for executing a restore request.
     """
     try:
         # Get the restore request 
@@ -239,6 +236,7 @@ def restore_backup(request):
         port = request.POST.get("port")
         user = request.POST.get("user")
         password = request.POST.get("password")
+        reqeustId = request.POST.get("requestId")
         zip_password = os.getenv("ZIP_PASSWORD")
         
         # Generate a timestamped database name
@@ -309,6 +307,16 @@ def restore_backup(request):
             with open(modified_file, "r") as sql_file:
                 subprocess.run(restore_command, stdin=sql_file, check=True)
             print(f"Restored backup to `{restore_database}`")
+            # Remove the backup file and zip file after restore
+            try:
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                    print(f"Removed backup file: {backup_file}")
+                if os.path.exists(local_zip_path):
+                    os.remove(local_zip_path)
+                    print(f"Removed zip file: {local_zip_path}")
+            except Exception as cleanup_error:
+                print(f"Error during cleanup: {cleanup_error}")
 
             # Rename the table in the restored database
             connection = pymysql.connect(
@@ -324,6 +332,13 @@ def restore_backup(request):
                 print(f"Renamed table `{table}` to `{restored_table_name}` in `{restore_database}`")
             connection.commit()
             connection.close()
+
+            ## Completed Restore, set RestoreRequest to complete status
+            restore_request = RestoreRequest.objects.get(id=reqeustId)
+            # Update the status to 'completed'
+            restore_request.status = 'completed'
+            # Save the changes to the database
+            restore_request.save()
 
 
             return JsonResponse({"status": "success", "message": f"Restored to {restore_database}.{restored_table_name}"})
