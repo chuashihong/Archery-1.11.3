@@ -6,7 +6,7 @@
 # metadata:
 #   name: mysql-increment-backup
 # spec:
-#   schedule: "* * * * *" # Runs every minute
+#   schedule: "5 * * * *" # Runs every minute
 #   jobTemplate:
 #     spec:
 #       template:

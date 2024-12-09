@@ -11,8 +11,9 @@ Write-Host "SCRIPT LOG: Applying new deployments and services..."
 # kubectl apply -f .\k8s\db-2-deployment.yml
 # kubectl apply -f .\k8s\db-3-deployment.yml
 # kubectl apply -f .\k8s\db-4-deployment.yml
-kubectl apply -f ./1.backupsimulation/cronjob.yaml
 # kubectl apply -f ./1.backupsimulation/cronjob-inc.yaml
-kubectl apply -f ./1.backupsimulation/db.yaml
+kubectl apply -f ./1.backupsimulation/cronjob.yaml
+kubectl apply -f ./1.backupsimulation/db-mongo-replica.yaml
+kubectl apply -f ./1.backupsimulation/db-mysql.yaml
 kubectl apply -f ./1.backupsimulation/minio.yaml
 Write-Host "SCRIPT LOG: Deployment completed."

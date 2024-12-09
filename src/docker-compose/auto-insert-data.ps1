@@ -12,17 +12,19 @@ $tables = @(
     @{db="db2"; table="table4"}
 )
 
+# Initialize a counter
+$counter = 1
+
 # Function to insert a row into a table
 function Insert-IntoTable {
     param (
         [string]$database,
-        [string]$table
+        [string]$table,
+        [int]$value
     )
-    # Get the current timestamp
-    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     
     # MySQL insert command
-    $query = "INSERT INTO $table (value) VALUES ('$timestamp');"
+    $query = "INSERT INTO $table (value) VALUES ($value);"
     
     # Execute the command
     & mysql --host=$hostname --port=$port --user=$username --password=$password --database=$database --execute=$query
@@ -34,10 +36,13 @@ while ($true) {
         $db = $entry.db
         $table = $entry.table
 
-        Write-Host "Inserting into $db.$table at $(Get-Date)"
-        Insert-IntoTable -database $db -table $table
+        Write-Host "Inserting into $db.$table with value $counter at $(Get-Date)"
+        Insert-IntoTable -database $db -table $table -value $counter
 
-        # Wait for 3 second before the next table
+        # Increment the counter
+        $counter++
+
+        # Wait for 3 seconds before the next table
         Start-Sleep -Seconds 3
     }
 }

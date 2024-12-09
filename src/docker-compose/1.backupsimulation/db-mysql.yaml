@@ -37,9 +37,9 @@ metadata:
   name: log-db-init-script
 data:
   log-db-init.sql: |
-    CREATE DATABASE IF NOT EXISTS backup_log_db;
+    CREATE DATABASE IF NOT EXISTS backup;
 
-    USE backup_log_db;
+    USE backup;
 
     CREATE TABLE IF NOT EXISTS BackupRecord (
         id INT AUTO_INCREMENT PRIMARY KEY,
